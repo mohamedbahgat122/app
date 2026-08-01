@@ -1,0 +1,13 @@
+
+> alfaris-driver-pwa@0.1.0 dev
+> next dev --webpack
+
+▲ Next.js 16.2.12 (webpack)
+- Local:         http://localhost:3000
+- Network:       http://172.20.10.4:3000
+- Environments: .env.local
+✓ Ready in 747ms
+
+○ Compiling /[locale] ...
+ GET /ar 200 in 8.1s (next.js: 7.6s, proxy.ts: 18ms, generate-params: 1169ms, application-code: 542ms)
+[?25h

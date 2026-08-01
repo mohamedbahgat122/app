@@ -1,0 +1,327 @@
+{
+  "Metadata": {
+    "title": "الفارس جروب | تطبيق المندوب",
+    "description": "تطبيق مندوبي الفارس جروب للخدمات اللوجستية"
+  },
+  "Brand": {
+    "name": "الفارس جروب",
+    "subtitle": "نظام إدارة الخدمات اللوجستية",
+    "logoAlt": "شعار الفارس جروب"
+  },
+  "Splash": {
+    "title": "نجهّز رحلتك",
+    "subtitle": "توصيل أسرع... وتنفيذ أدق",
+    "loading": "جاري التجهيز"
+  },
+  "Login": {
+    "eyebrow": "تسجيل الدخول",
+    "welcomeTitle": "مرحباً بعودتك",
+    "description": "أدخل بيانات حسابك للوصول إلى النظام",
+    "driverIdLabel": "معرف المندوب",
+    "driverIdPlaceholder": "أدخل معرف كيتا",
+    "passwordLabel": "كلمة المرور",
+    "passwordPlaceholder": "أدخل كلمة المرور",
+    "showPassword": "إظهار كلمة المرور",
+    "hidePassword": "إخفاء كلمة المرور",
+    "submit": "دخول",
+    "submitting": "جاري تسجيل الدخول...",
+    "validation": {
+      "driverIdRequired": "معرف المندوب مطلوب",
+      "passwordRequired": "كلمة المرور مطلوبة",
+      "invalidCredentials": "معرف المندوب أو كلمة المرور غير صحيحة",
+      "unauthorized": "هذا الحساب غير مصرح له باستخدام تطبيق المندوب",
+      "networkError": "تعذر الاتصال بالخدمة. حاول مرة أخرى.",
+      "applicationError": "تعذر تحميل بيانات المندوب المرتبطة. حاول مرة أخرى لاحقاً."
+    }
+  },
+  "Home": {
+    "eyebrow": "حساب المندوب",
+    "title": "تم تسجيل الدخول بنجاح",
+    "description": "تم ربط حسابك ببيانات المندوب بنجاح",
+    "mustChangePassword": "يجب تغيير كلمة المرور المؤقتة قبل استخدام التطبيق",
+    "driverName": "اسم المندوب",
+    "driverId": "معرف المندوب",
+    "organization": "المؤسسة",
+    "vehiclePlate": "لوحة المركبة المرتبطة",
+    "status": "حالة الحساب",
+    "applicationError": "تعذر تحميل بيانات المؤسسة. حاول مرة أخرى لاحقاً.",
+    "active": "نشط",
+    "suspended": "موقوف",
+    "notAvailable": "غير متوفر",
+    "logout": "تسجيل الخروج",
+    "odometerTitle": "العداد",
+    "shiftStates": {
+      "notStarted": "لم تبدأ دوامك اليوم",
+      "open": "الدوام قيد التشغيل",
+      "completedToday": "تم إنهاء دوامك اليوم"
+    },
+    "startTime": "وقت البداية",
+    "endTime": "وقت النهاية",
+    "startReading": "قراءة البداية",
+    "endReading": "قراءة النهاية",
+    "distance": "المسافة المقطوعة",
+    "ratingTitle": "تقييمي",
+    "noRating": "لا يوجد تقييم حتى الآن",
+    "recentShift": "آخر دوام",
+    "verification": "التحقق",
+    "verified": "تم التحقق",
+    "reviewStatus": "مراجعة بداية الدوام",
+    "endReviewStatus": "مراجعة نهاية الدوام",
+    "reviewStatuses": {
+      "pending_review": "بانتظار المراجعة",
+      "approved": "معتمد",
+      "rejected": "مرفوض"
+    }
+  },
+  "Shell": {
+    "welcome": "مرحبًا بك يا {name}",
+    "subtitle": "تطبيق المندوب",
+    "tasks": "المهام",
+    "notifications": "الإشعارات",
+    "account": "الحساب",
+    "nav": {
+      "odometer": "العداد",
+      "requests": "طلباتي",
+      "shifts": "الدوامات",
+      "vehicle": "السيارة",
+      "salary": "راتبي"
+    }
+  },
+  "Odometer": {
+    "startShift": "بدء الدوام",
+    "endShift": "إنهاء الدوام",
+    "readingLabel": "قراءة العداد",
+    "readingPlaceholder": "أدخل قراءة العداد الحالية",
+    "confirmStart": "تأكيد بداية الدوام",
+    "confirmEnd": "تأكيد نهاية الدوام",
+    "retake": "إعادة التصوير",
+    "saving": "جاري الحفظ...",
+    "capturedPhoto": "صورة العداد",
+    "errors": {
+      "photoRequired": "صورة العداد مطلوبة",
+      "invalidReading": "أدخل قراءة عداد صحيحة.",
+      "endBelowStart": "قراءة نهاية الدوام لا يمكن أن تكون أقل من قراءة البداية.",
+      "sessionExpired": "انتهت الجلسة. سجل الدخول مرة أخرى.",
+      "uploadFailed": "تعذر رفع صورة العداد. حاول مرة أخرى.",
+      "saveFailed": "تعذر حفظ بيانات الدوام، حاول مرة أخرى.",
+      "openExists": "توجد بداية دوام مفتوحة بالفعل",
+      "noOpenShift": "لا توجد بداية دوام مسجلة لهذا اليوم.",
+      "noVehicle": "لا توجد سيارة مرتبطة بالحساب",
+      "invalidPhoto": "تعذر التحقق من صورة العداد.",
+      "ocrConfigMissing": "التحقق من العداد غير مهيأ على الخادم.",
+      "unreadable": "تعذر قراءة العداد بوضوح، أعد التصوير مع وضع الأرقام داخل الإطار",
+      "mismatch": "الرقم المكتوب غير مطابق للرقم الظاهر في صورة العداد",
+      "ocrTimeout": "استغرقت قراءة العداد وقتاً طويلاً. حاول مرة أخرى.",
+      "networkFailed": "تعذر الاتصال بالخادم. تأكد أن التطبيق يعمل ثم حاول مرة أخرى.",
+      "requestAborted": "تم إلغاء الطلب. حاول مرة أخرى.",
+      "imageProcessingFailed": "تعذر معالجة صورة العداد.",
+      "imageProcessorUnavailable": "خدمة معالجة صورة العداد غير متاحة حاليًا، حاول مرة أخرى.",
+      "driverLookupFailed": "تعذر قراءة ارتباط الحساب. حاول مرة أخرى.",
+      "driverAccountNotLinked": "حساب التطبيق غير مرتبط ببيانات مندوب.",
+      "duplicateDriverLink": "هذا الحساب مرتبط بأكثر من مندوب. تواصل مع الإدارة.",
+      "organizationLookupFailed": "تعذر قراءة مؤسسة المندوب. حاول مرة أخرى.",
+      "organizationNotResolved": "تعذر تحديد مؤسسة المندوب من بياناته.",
+      "organizationInactive": "مؤسسة المندوب غير نشطة حاليًا."
+    },
+    "steps": {
+      "matching": "جاري التحقق من قراءة العداد...",
+      "uploading": "جاري رفع صورة العداد...",
+      "reading": "جاري التحقق من قراءة العداد...",
+      "saving": "جاري حفظ بيانات الدوام..."
+    },
+    "manualReading": "الرقم المكتوب: {value}",
+    "ocrReading": "الرقم المقروء من الصورة: {value}",
+    "submittedReading": "قراءة العداد: {value}",
+    "submittedAt": "وقت التقاط صورة العداد: {value}",
+    "success": {
+      "start": "تم تسجيل بداية الدوام وإرسال قراءة العداد للمراجعة.",
+      "end": "تم تسجيل نهاية الدوام وإرسال قراءة العداد للمراجعة."
+    },
+    "reviewStatus": {
+      "pending_review": "حالة مراجعة الإدارة: بانتظار المراجعة"
+    }
+  },
+  "Camera": {
+    "title": "تصوير العداد",
+    "instruction": "ضع أرقام العداد داخل الإطار بوضوح",
+    "loading": "جاري فتح الكاميرا...",
+    "capture": "التقاط الصورة",
+    "close": "إغلاق الكاميرا",
+    "retake": "إعادة التصوير",
+    "usePhoto": "استخدام الصورة",
+    "previewAlt": "معاينة صورة العداد",
+    "errors": {
+      "insecure": "يلزم فتح التطبيق من خلال اتصال HTTPS آمن لاستخدام الكاميرا",
+      "unavailable": "الكاميرا غير متاحة على هذا الجهاز",
+      "permission": "يلزم السماح باستخدام الكاميرا لتصوير العداد.",
+      "noDevice": "لم يتم العثور على كاميرا متاحة",
+      "captureFailed": "تعذر التقاط الصورة. حاول مرة أخرى."
+    }
+  },
+  "Requests": {
+    "statuses": {
+      "completed": "مكتمل",
+      "approved": "موافق عليه",
+      "pending": "قيد المراجعة",
+      "rejected": "مرفوض",
+      "cancelled": "ملغي"
+    },
+    "errors": {
+      "invalidLeave": "أدخل تواريخ إجازة صحيحة وسببًا.",
+      "invalidMaintenance": "أدخل الفئة والأهمية ووصف المشكلة.",
+      "sessionUnavailable": "انتهت الجلسة. سجل الدخول مرة أخرى.",
+      "submitFailed": "تعذر إرسال الطلب. حاول مرة أخرى.",
+      "invalidOdometer": "أدخل قراءة عداد صحيحة.",
+      "invalidMeeting": "أدخل الموضوع والسبب.",
+      "vehicleRequired": "لا توجد مركبة مرتبطة بحسابك. تواصل مع الإدارة.",
+      "vehicle_not_linked": "لا توجد مركبة مرتبطة بحسابك. تواصل مع الإدارة.",
+      "vehicle_not_found": "لا توجد مركبة مرتبطة بحسابك. تواصل مع الإدارة.",
+      "vehicle_ambiguous": "يوجد أكثر من سجل للمركبة المرتبطة. يرجى مراجعة الإدارة.",
+      "vehicle_inactive": "المركبة المرتبطة غير مفعلة حالياً. يرجى مراجعة الإدارة.",
+      "vehicle_organization_mismatch": "بيانات المركبة لا تتطابق مع مؤسسة المندوب. يرجى مراجعة الإدارة.",
+      "odometerBelowLatest": "القراءة أقل من آخر قراءة عداد لدوام مكتمل."
+    },
+    "vehicle": "المركبة المرتبطة",
+    "history": "سجل الطلبات",
+    "submit": "إرسال الطلب",
+    "title": "طلباتي",
+    "types": {
+      "leave": "إجازة",
+      "oil_change": "تغيير الزيت",
+      "fuel": "زيادة الوقود",
+      "maintenance": "صيانة",
+      "meeting": "اجتماع"
+    },
+    "scheduled": "مجدول",
+    "choices": {
+      "leave": "طلب إجازة",
+      "oil-change": "طلب تغيير الزيت",
+      "maintenance": "طلب صيانة",
+      "meeting": "طلب اجتماع"
+    },
+    "leaveTypes": {
+      "sick": "مرضية",
+      "weekly": "أسبوعية",
+      "annual": "سنوية"
+    },
+    "notAvailable": "غير متاح",
+    "urgency": {
+      "urgent": "عاجل",
+      "normal": "عادي"
+    },
+    "reviewNote": "ملاحظة المراجعة",
+    "realtime": {
+      "updated": "تم تحديث الطلبات"
+    },
+    "empty": "لم يتم إرسال أي طلبات بعد",
+    "fields": {
+      "urgency": "الأهمية",
+      "preferredDate": "التاريخ المفضل",
+      "description": "وصف المشكلة",
+      "category": "فئة الصيانة",
+      "preferredTime": "الوقت المفضل",
+      "endDate": "تاريخ النهاية",
+      "startDate": "تاريخ البداية",
+      "subject": "الموضوع",
+      "odometerReading": "قراءة العداد الحالية",
+      "leaveType": "نوع الإجازة",
+      "reason": "السبب",
+      "note": "ملاحظة"
+    }
+  },
+  "Salary": {
+    "title": "راتبي",
+    "empty": "لا توجد بيانات راتب متاحة حاليًا"
+  },
+  "Tasks": {
+    "title": "المهام",
+    "empty": "لا توجد مهام مخصصة لك حاليًا"
+  },
+  "Notifications": {
+    "title": "الإشعارات",
+    "empty": "لا توجد إشعارات حاليًا",
+    "markRead": "تعليم كمقروء",
+    "markAllRead": "تعليم الكل كمقروء",
+    "openRequest": "فتح الطلب",
+    "read": "مقروء",
+    "unread": "غير مقروء",
+    "updated": "تم تحديث الإشعارات"
+  },
+  "Account": {
+    "organization": "المؤسسة",
+    "vehiclePlate": "لوحة السيارة",
+    "language": "اللغة",
+    "changePassword": "تغيير كلمة المرور",
+    "logout": "تسجيل الخروج",
+    "notAvailable": "غير متوفر",
+    "languages": {
+      "ar": "العربية",
+      "en": "English",
+      "ur": "اردو",
+      "bn": "বাংলা"
+    }
+  },
+  "Vehicle": {
+    "title": "السيارة",
+    "empty": "لا توجد سيارة مرتبطة بحسابك حاليًا",
+    "plate": "اللوحة",
+    "type": "النوع",
+    "category": "الفئة",
+    "operationalStatus": "حالة التشغيل",
+    "technicalStatus": "الحالة الفنية",
+    "operatingCardExpiry": "انتهاء بطاقة التشغيل",
+    "authorizationExpiry": "انتهاء التفويض",
+    "categories": {
+      "car": "سيارة",
+      "motorcycle": "دراجة نارية"
+    },
+    "operational": {
+      "active": "نشطة",
+      "suspended": "موقوفة"
+    },
+    "technical": {
+      "healthy": "سليمة",
+      "fault": "عطل",
+      "accident": "حادث"
+    }
+  },
+  "Shifts": {
+    "title": "الدوامات",
+    "emptyTitle": "لا توجد دوامات",
+    "empty": "ستظهر الدوامات بعد بدء أول دوام",
+    "startTime": "البداية",
+    "endTime": "النهاية",
+    "startReading": "قراءة البداية",
+    "endReading": "قراءة النهاية",
+    "distance": "المسافة",
+    "status": {
+      "open": "مفتوح",
+      "completed": "مكتمل",
+      "cancelled": "ملغي"
+    }
+  },
+  "ChangePassword": {
+    "title": "تغيير كلمة المرور",
+    "description": "يجب تغيير كلمة المرور المؤقتة قبل استخدام التطبيق",
+    "newPassword": "كلمة المرور الجديدة",
+    "confirmPassword": "تأكيد كلمة المرور الجديدة",
+    "submit": "حفظ كلمة المرور والمتابعة",
+    "submitting": "جاري حفظ كلمة المرور...",
+    "continue": "متابعة",
+    "validation": {
+      "required": "أدخل كلمة المرور الجديدة وتأكيدها",
+      "mismatch": "كلمتا المرور غير متطابقتين",
+      "weak": "استخدم كلمة مرور أقوى لا تقل عن 8 أحرف",
+      "sessionUnavailable": "انتهت الجلسة. سجل الدخول مرة أخرى.",
+      "updateFailed": "تعذر حفظ كلمة المرور. حاول مرة أخرى.",
+      "finalizationRequired": "تم حفظ كلمة المرور، لكن يجب إكمال تجهيز الحساب. اضغط متابعة للمحاولة مرة أخرى."
+    }
+  },
+  "Languages": {
+    "selector": "اختيار اللغة",
+    "ar": "العربية",
+    "en": "English",
+    "ur": "اردو",
+    "bn": "বাংলা"
+  }
+}

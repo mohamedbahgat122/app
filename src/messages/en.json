@@ -1,0 +1,327 @@
+{
+  "Metadata": {
+    "title": "Al Faris Group | Driver App",
+    "description": "Al Faris Group driver app for logistics services"
+  },
+  "Brand": {
+    "name": "Al Faris Group",
+    "subtitle": "Logistics Services Management System",
+    "logoAlt": "Al Faris Group logo"
+  },
+  "Splash": {
+    "title": "Preparing your journey",
+    "subtitle": "Delivering efficiently with precise execution",
+    "loading": "Loading"
+  },
+  "Login": {
+    "eyebrow": "Sign in",
+    "welcomeTitle": "Welcome back",
+    "description": "Enter your account details to access the system",
+    "driverIdLabel": "Driver ID",
+    "driverIdPlaceholder": "Enter your Driver ID",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "submit": "Sign in",
+    "submitting": "Signing in...",
+    "validation": {
+      "driverIdRequired": "Driver ID is required",
+      "passwordRequired": "Password is required",
+      "invalidCredentials": "The Driver ID or password is incorrect",
+      "unauthorized": "This account is not authorized for the driver app",
+      "networkError": "Could not connect to the service. Please try again.",
+      "applicationError": "Could not load your linked driver details. Please try again later."
+    }
+  },
+  "Home": {
+    "eyebrow": "Driver account",
+    "title": "Signed in successfully",
+    "description": "Your account is linked to the driver profile.",
+    "mustChangePassword": "You must change the temporary password before using the app.",
+    "driverName": "Driver name",
+    "driverId": "Driver ID",
+    "organization": "Organization",
+    "vehiclePlate": "Linked vehicle plate",
+    "status": "Account status",
+    "applicationError": "Could not load the organization details. Please try again later.",
+    "active": "Active",
+    "suspended": "Suspended",
+    "notAvailable": "Not available",
+    "logout": "Sign out",
+    "odometerTitle": "Odometer",
+    "shiftStates": {
+      "notStarted": "Your shift has not started today",
+      "open": "Shift is running",
+      "completedToday": "Your shift is completed today"
+    },
+    "startTime": "Start time",
+    "endTime": "End time",
+    "startReading": "Start reading",
+    "endReading": "End reading",
+    "distance": "Distance travelled",
+    "ratingTitle": "My rating",
+    "noRating": "No rating yet",
+    "recentShift": "Recent shift",
+    "verification": "Verification",
+    "verified": "Verified",
+    "reviewStatus": "Start review",
+    "endReviewStatus": "End review",
+    "reviewStatuses": {
+      "pending_review": "Pending review",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    }
+  },
+  "Shell": {
+    "welcome": "Welcome, {name}",
+    "subtitle": "Driver app",
+    "tasks": "Tasks",
+    "notifications": "Notifications",
+    "account": "Account",
+    "nav": {
+      "odometer": "Odometer",
+      "requests": "My Requests",
+      "shifts": "Shifts",
+      "vehicle": "Vehicle",
+      "salary": "Salary"
+    }
+  },
+  "Odometer": {
+    "startShift": "Start Shift",
+    "endShift": "End Shift",
+    "readingLabel": "Odometer reading",
+    "readingPlaceholder": "Enter the current odometer reading",
+    "confirmStart": "Confirm shift start",
+    "confirmEnd": "Confirm shift end",
+    "retake": "Retake",
+    "saving": "Saving...",
+    "manualReading": "Entered reading: {value}",
+    "ocrReading": "Reading from the photo: {value}",
+    "capturedPhoto": "Odometer photo",
+    "steps": {
+      "uploading": "Uploading photo...",
+      "reading": "Checking reading...",
+      "matching": "Checking reading...",
+      "saving": "Saving duty data..."
+    },
+    "errors": {
+      "photoRequired": "Odometer photo is required",
+      "invalidReading": "Enter a valid odometer reading",
+      "endBelowStart": "End reading cannot be lower than the start reading",
+      "sessionExpired": "Your session has ended. Sign in again.",
+      "uploadFailed": "Could not upload the odometer photo. Please try again.",
+      "saveFailed": "Could not save duty data. Please try again.",
+      "driverLookupFailed": "Could not read the account link. Please try again.",
+      "driverAccountNotLinked": "This app account is not linked to driver data.",
+      "duplicateDriverLink": "This app account is linked to more than one driver. Please contact administration.",
+      "organizationLookupFailed": "Could not read the driver's organization. Please try again.",
+      "organizationNotResolved": "Could not resolve the driver's organization from their data.",
+      "organizationInactive": "The driver's organization is currently inactive.",
+      "openExists": "There is already an open shift",
+      "noOpenShift": "There is no open shift to end",
+      "noVehicle": "No vehicle is linked to this account",
+      "mismatch": "The entered number does not match the number visible in the odometer photo",
+      "unreadable": "The odometer could not be read clearly. Retake the photo with the digits inside the frame.",
+      "ocrConfigMissing": "Odometer verification is not configured on this server.",
+      "invalidPhoto": "This odometer photo could not be verified.",
+      "ocrTimeout": "Odometer reading took too long. Try again.",
+      "networkFailed": "Could not connect to the server. Make sure the app is running, then try again.",
+      "requestAborted": "The request was cancelled. Try again.",
+      "imageProcessingFailed": "Could not process the odometer photo.",
+      "imageProcessorUnavailable": "The odometer image processing service is currently unavailable. Please try again."
+    },
+    "submittedReading": "Reading: {value}",
+    "submittedAt": "Capture time: {value}",
+    "success": {
+      "start": "Start of duty was recorded and the odometer reading was sent for review.",
+      "end": "End of duty was recorded and the odometer reading was sent for review."
+    },
+    "reviewStatus": {
+      "pending_review": "Review status: Pending review"
+    }
+  },
+  "Camera": {
+    "title": "Capture odometer",
+    "instruction": "Place the odometer digits clearly inside the frame",
+    "loading": "Opening camera...",
+    "capture": "Capture photo",
+    "close": "Close camera",
+    "retake": "Retake",
+    "usePhoto": "Use Photo",
+    "previewAlt": "Odometer photo preview",
+    "errors": {
+      "insecure": "A secure HTTPS connection is required to use the camera",
+      "unavailable": "The camera is not available on this device",
+      "permission": "Camera permission was denied",
+      "noDevice": "No camera device was found",
+      "captureFailed": "Could not capture the photo. Please try again."
+    }
+  },
+  "Requests": {
+    "title": "My Requests",
+    "empty": "No requests have been submitted yet",
+    "history": "Request History",
+    "submit": "Submit Request",
+    "vehicle": "Linked vehicle",
+    "notAvailable": "Not available",
+    "scheduled": "Scheduled",
+    "reviewNote": "Review note",
+    "realtime": {
+      "updated": "Requests updated"
+    },
+    "choices": {
+      "leave": "Leave Request",
+      "maintenance": "Maintenance Request",
+      "meeting": "Meeting Request",
+      "oil-change": "Oil Change Request"
+    },
+    "types": {
+      "fuel": "Fuel Increase",
+      "leave": "Leave",
+      "maintenance": "Maintenance",
+      "meeting": "Meeting",
+      "oil_change": "Oil Change"
+    },
+    "statuses": {
+      "pending": "Pending review",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "fields": {
+      "leaveType": "Leave type",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "reason": "Reason",
+      "category": "Maintenance category",
+      "urgency": "Urgency",
+      "description": "Problem description",
+      "subject": "Subject",
+      "preferredDate": "Preferred date",
+      "preferredTime": "Preferred time",
+      "odometerReading": "Current odometer reading",
+      "note": "Note"
+    },
+    "leaveTypes": {
+      "sick": "Sick leave",
+      "weekly": "Weekly leave",
+      "annual": "Annual leave"
+    },
+    "urgency": {
+      "normal": "Normal",
+      "urgent": "Urgent"
+    },
+    "errors": {
+      "invalidLeave": "Enter valid leave dates and a reason.",
+      "invalidMaintenance": "Enter category, urgency, and problem description.",
+      "invalidMeeting": "Enter subject and reason.",
+      "invalidOdometer": "Enter a valid odometer reading.",
+      "vehicleRequired": "No vehicle is linked to your account. Contact management.",
+      "vehicle_not_linked": "No vehicle is linked to your account. Contact management.",
+      "vehicle_not_found": "No vehicle is linked to your account. Contact management.",
+      "vehicle_ambiguous": "More than one linked vehicle record was found. Please contact management.",
+      "vehicle_inactive": "The linked vehicle is not active right now. Please contact management.",
+      "vehicle_organization_mismatch": "The vehicle data does not match the driver's organization. Please contact management.",
+      "odometerBelowLatest": "The reading is below the latest completed shift odometer.",
+      "sessionUnavailable": "Your session has ended. Sign in again.",
+      "submitFailed": "Request could not be submitted. Please try again."
+    }
+  },
+  "Salary": {
+    "title": "Salary",
+    "empty": "No salary data is currently available"
+  },
+  "Tasks": {
+    "title": "Tasks",
+    "empty": "No tasks are assigned to you right now"
+  },
+  "Notifications": {
+    "title": "Notifications",
+    "empty": "No notifications right now",
+    "markRead": "Mark read",
+    "markAllRead": "Mark all read",
+    "openRequest": "Open request",
+    "read": "Read",
+    "unread": "Unread",
+    "updated": "Notifications updated"
+  },
+  "Account": {
+    "organization": "Organization",
+    "vehiclePlate": "Vehicle plate",
+    "language": "Language",
+    "changePassword": "Change password",
+    "logout": "Sign out",
+    "notAvailable": "Not available",
+    "languages": {
+      "ar": "العربية",
+      "en": "English",
+      "ur": "اردو",
+      "bn": "বাংলা"
+    }
+  },
+  "Vehicle": {
+    "title": "Vehicle",
+    "empty": "No vehicle is currently linked to your account",
+    "plate": "Plate",
+    "type": "Type",
+    "category": "Category",
+    "operationalStatus": "Operational status",
+    "technicalStatus": "Technical status",
+    "operatingCardExpiry": "Operating-card expiry",
+    "authorizationExpiry": "Authorization expiry",
+    "categories": {
+      "car": "Car",
+      "motorcycle": "Motorcycle"
+    },
+    "operational": {
+      "active": "Active",
+      "suspended": "Suspended"
+    },
+    "technical": {
+      "healthy": "Healthy",
+      "fault": "Fault",
+      "accident": "Accident"
+    }
+  },
+  "Shifts": {
+    "title": "Shifts",
+    "emptyTitle": "No shifts",
+    "empty": "Your shifts will appear after you start the first one",
+    "startTime": "Start",
+    "endTime": "End",
+    "startReading": "Start reading",
+    "endReading": "End reading",
+    "distance": "Distance",
+    "status": {
+      "open": "Open",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    }
+  },
+  "ChangePassword": {
+    "title": "Change password",
+    "description": "You must change the temporary password before using the app",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "submit": "Save password and continue",
+    "submitting": "Saving password...",
+    "continue": "Continue",
+    "validation": {
+      "required": "Enter and confirm the new password",
+      "mismatch": "The passwords do not match",
+      "weak": "Use a stronger password with at least 8 characters",
+      "sessionUnavailable": "Your session has ended. Sign in again.",
+      "updateFailed": "Could not save the password. Please try again.",
+      "finalizationRequired": "The password was saved, but account preparation still needs to finish. Press Continue to try again."
+    }
+  },
+  "Languages": {
+    "selector": "Choose language",
+    "ar": "العربية",
+    "en": "English",
+    "ur": "اردو",
+    "bn": "বাংলা"
+  }
+}

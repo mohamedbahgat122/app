@@ -1,0 +1,327 @@
+{
+  "Metadata": {
+    "title": "Al Faris Group | ڈرائیور ایپ",
+    "description": "لوجسٹکس سروسز کے لیے Al Faris Group ڈرائیور ایپ"
+  },
+  "Brand": {
+    "name": "Al Faris Group",
+    "subtitle": "لوجسٹکس سروسز مینجمنٹ سسٹم",
+    "logoAlt": "Al Faris Group کا لوگو"
+  },
+  "Splash": {
+    "title": "آپ کا سفر تیار کیا جا رہا ہے",
+    "subtitle": "موثر ترسیل، درست عمل درآمد کے ساتھ",
+    "loading": "تیاری جاری ہے"
+  },
+  "Login": {
+    "eyebrow": "لاگ ان",
+    "welcomeTitle": "خوش آمدید",
+    "description": "سسٹم تک رسائی کے لیے اپنے اکاؤنٹ کی معلومات درج کریں",
+    "driverIdLabel": "ڈرائیور ID",
+    "driverIdPlaceholder": "اپنا ڈرائیور ID درج کریں",
+    "passwordLabel": "پاس ورڈ",
+    "passwordPlaceholder": "اپنا پاس ورڈ درج کریں",
+    "showPassword": "پاس ورڈ دکھائیں",
+    "hidePassword": "پاس ورڈ چھپائیں",
+    "submit": "لاگ ان",
+    "submitting": "لاگ ان ہو رہا ہے...",
+    "validation": {
+      "driverIdRequired": "ڈرائیور ID ضروری ہے",
+      "passwordRequired": "پاس ورڈ ضروری ہے",
+      "invalidCredentials": "ڈرائیور ID یا پاس ورڈ درست نہیں ہے",
+      "unauthorized": "یہ اکاؤنٹ ڈرائیور ایپ کے لیے مجاز نہیں ہے",
+      "networkError": "سروس سے رابطہ نہیں ہو سکا۔ دوبارہ کوشش کریں۔",
+      "applicationError": "منسلک ڈرائیور کی معلومات لوڈ نہیں ہو سکیں۔ بعد میں دوبارہ کوشش کریں۔"
+    }
+  },
+  "Home": {
+    "eyebrow": "ڈرائیور اکاؤنٹ",
+    "title": "کامیابی سے لاگ ان ہو گیا",
+    "description": "آپ کا اکاؤنٹ ڈرائیور پروفائل سے منسلک ہے۔",
+    "mustChangePassword": "ایپ استعمال کرنے سے پہلے عارضی پاس ورڈ تبدیل کرنا ضروری ہے۔",
+    "driverName": "ڈرائیور کا نام",
+    "driverId": "ڈرائیور ID",
+    "organization": "ادارہ",
+    "vehiclePlate": "منسلک گاڑی کی پلیٹ",
+    "status": "اکاؤنٹ کی حالت",
+    "applicationError": "ادارے کی معلومات لوڈ نہیں ہو سکیں۔ بعد میں دوبارہ کوشش کریں۔",
+    "active": "فعال",
+    "suspended": "معطل",
+    "notAvailable": "دستیاب نہیں",
+    "logout": "لاگ آؤٹ",
+    "odometerTitle": "اوڈومیٹر",
+    "shiftStates": {
+      "notStarted": "آج آپ کی شفٹ شروع نہیں ہوئی",
+      "open": "شفٹ جاری ہے",
+      "completedToday": "آج آپ کی شفٹ مکمل ہو گئی"
+    },
+    "startTime": "شروع ہونے کا وقت",
+    "endTime": "ختم ہونے کا وقت",
+    "startReading": "ابتدائی ریڈنگ",
+    "endReading": "آخری ریڈنگ",
+    "distance": "طے شدہ فاصلہ",
+    "ratingTitle": "میری ریٹنگ",
+    "noRating": "ابھی کوئی ریٹنگ موجود نہیں",
+    "recentShift": "حالیہ شفٹ",
+    "verification": "تصدیق",
+    "verified": "تصدیق شدہ",
+    "reviewStatus": "Start review",
+    "endReviewStatus": "End review",
+    "reviewStatuses": {
+      "pending_review": "Pending review",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    }
+  },
+  "Shell": {
+    "welcome": "خوش آمدید، {name}",
+    "subtitle": "ڈرائیور ایپ",
+    "tasks": "ٹاسکس",
+    "notifications": "اطلاعات",
+    "account": "اکاؤنٹ",
+    "nav": {
+      "odometer": "اوڈومیٹر",
+      "requests": "درخواستیں",
+      "shifts": "شفٹیں",
+      "vehicle": "گاڑی",
+      "salary": "تنخواہ"
+    }
+  },
+  "Odometer": {
+    "startShift": "شفٹ شروع کریں",
+    "endShift": "شفٹ ختم کریں",
+    "readingLabel": "اوڈومیٹر ریڈنگ",
+    "readingPlaceholder": "موجودہ اوڈومیٹر ریڈنگ درج کریں",
+    "confirmStart": "شفٹ شروع کرنے کی تصدیق",
+    "confirmEnd": "شفٹ ختم کرنے کی تصدیق",
+    "retake": "دوبارہ تصویر لیں",
+    "saving": "محفوظ ہو رہا ہے...",
+    "capturedPhoto": "اوڈومیٹر تصویر",
+    "errors": {
+      "photoRequired": "اوڈومیٹر تصویر ضروری ہے",
+      "invalidReading": "درست اوڈومیٹر ریڈنگ درج کریں",
+      "endBelowStart": "اختتامی ریڈنگ ابتدائی ریڈنگ سے کم نہیں ہو سکتی",
+      "sessionExpired": "آپ کا سیشن ختم ہو گیا ہے۔ دوبارہ لاگ ان کریں۔",
+      "uploadFailed": "اوڈومیٹر تصویر اپ لوڈ نہیں ہو سکی۔ دوبارہ کوشش کریں۔",
+      "saveFailed": "Could not save duty data. Please try again.",
+      "openExists": "ایک شفٹ پہلے ہی کھلی ہوئی ہے",
+      "noOpenShift": "ختم کرنے کے لیے کوئی کھلی شفٹ نہیں ہے",
+      "noVehicle": "اس اکاؤنٹ سے کوئی گاڑی منسلک نہیں",
+      "invalidPhoto": "اس اوڈومیٹر تصویر کی تصدیق نہیں ہو سکی۔",
+      "ocrConfigMissing": "اس سرور پر اوڈومیٹر تصدیق ترتیب نہیں دی گئی۔",
+      "unreadable": "اوڈومیٹر واضح طور پر نہیں پڑھا جا سکا۔ اعداد کو فریم کے اندر رکھ کر دوبارہ تصویر لیں۔",
+      "mismatch": "درج کیا گیا نمبر اوڈومیٹر کی تصویر میں نظر آنے والے نمبر سے مطابقت نہیں رکھتا",
+      "ocrTimeout": "اوڈومیٹر پڑھنے میں زیادہ وقت لگا۔ دوبارہ کوشش کریں۔",
+      "networkFailed": "سرور سے رابطہ نہیں ہو سکا۔ یقینی بنائیں کہ ایپ چل رہی ہے، پھر دوبارہ کوشش کریں۔",
+      "requestAborted": "درخواست منسوخ ہو گئی۔ دوبارہ کوشش کریں۔",
+      "imageProcessingFailed": "اوڈومیٹر تصویر پر کارروائی نہیں ہو سکی۔",
+      "imageProcessorUnavailable": "اوڈومیٹر تصویر کی پروسیسنگ سروس فی الحال دستیاب نہیں، دوبارہ کوشش کریں.",
+      "driverLookupFailed": "اکاؤنٹ کا ربط پڑھا نہیں جا سکا. دوبارہ کوشش کریں.",
+      "driverAccountNotLinked": "یہ ایپ اکاؤنٹ ڈرائیور کے ڈیٹا سے منسلک نہیں.",
+      "duplicateDriverLink": "یہ ایپ اکاؤنٹ ایک سے زیادہ ڈرائیورز سے منسلک ہے. انتظامیہ سے رابطہ کریں.",
+      "organizationLookupFailed": "ڈرائیور کا ادارہ پڑھا نہیں جا سکا. دوبارہ کوشش کریں.",
+      "organizationNotResolved": "ڈرائیور کے ڈیٹا سے ادارہ طے نہیں ہو سکا.",
+      "organizationInactive": "ڈرائیور کا ادارہ فی الحال غیر فعال ہے."
+    },
+    "steps": {
+      "matching": "Checking reading...",
+      "uploading": "Uploading photo...",
+      "reading": "Checking reading...",
+      "saving": "Saving duty data..."
+    },
+    "manualReading": "درج کردہ ریڈنگ: {value}",
+    "ocrReading": "تصویر سے پڑھی گئی ریڈنگ: {value}",
+    "submittedReading": "Reading: {value}",
+    "submittedAt": "Capture time: {value}",
+    "success": {
+      "start": "Start of duty was recorded and sent for review.",
+      "end": "End of duty was recorded and sent for review."
+    },
+    "reviewStatus": {
+      "pending_review": "Review status: Pending review"
+    }
+  },
+  "Camera": {
+    "title": "اوڈومیٹر کی تصویر",
+    "instruction": "اوڈومیٹر کے اعداد واضح طور پر فریم کے اندر رکھیں",
+    "loading": "کیمرا کھل رہا ہے...",
+    "capture": "تصویر لیں",
+    "close": "کیمرا بند کریں",
+    "retake": "دوبارہ تصویر لیں",
+    "usePhoto": "تصویر استعمال کریں",
+    "previewAlt": "اوڈومیٹر تصویر کا پیش منظر",
+    "errors": {
+      "insecure": "کیمرا استعمال کرنے کے لیے محفوظ HTTPS کنکشن ضروری ہے",
+      "unavailable": "اس ڈیوائس پر کیمرا دستیاب نہیں",
+      "permission": "کیمرا کی اجازت مسترد کر دی گئی",
+      "noDevice": "کوئی کیمرا ڈیوائس نہیں ملی",
+      "captureFailed": "تصویر نہیں لی جا سکی۔ دوبارہ کوشش کریں۔"
+    }
+  },
+  "Requests": {
+    "statuses": {
+      "completed": "مکمل",
+      "approved": "منظور شدہ",
+      "pending": "جائزے کے منتظر",
+      "rejected": "مسترد",
+      "cancelled": "منسوخ"
+    },
+    "errors": {
+      "invalidLeave": "درست چھٹی کی تاریخیں اور وجہ درج کریں.",
+      "invalidMaintenance": "قسم، اہمیت، اور مسئلے کی تفصیل درج کریں.",
+      "sessionUnavailable": "آپ کا سیشن ختم ہو گیا ہے. دوبارہ لاگ ان کریں.",
+      "submitFailed": "درخواست جمع نہیں ہو سکی. دوبارہ کوشش کریں.",
+      "invalidOdometer": "درست اوڈومیٹر ریڈنگ درج کریں.",
+      "invalidMeeting": "موضوع اور وجہ درج کریں.",
+      "vehicleRequired": "آپ کے اکاؤنٹ سے کوئی گاڑی منسلک نہیں. انتظامیہ سے رابطہ کریں.",
+      "vehicle_not_linked": "آپ کے اکاؤنٹ سے کوئی گاڑی منسلک نہیں. انتظامیہ سے رابطہ کریں.",
+      "vehicle_not_found": "آپ کے اکاؤنٹ سے کوئی گاڑی منسلک نہیں. انتظامیہ سے رابطہ کریں.",
+      "vehicle_ambiguous": "منسلک گاڑی کے ایک سے زیادہ ریکارڈ موجود ہیں. براہ کرم انتظامیہ سے رابطہ کریں.",
+      "vehicle_inactive": "منسلک گاڑی فی الحال فعال نہیں. براہ کرم انتظامیہ سے رابطہ کریں.",
+      "vehicle_organization_mismatch": "گاڑی کا ڈیٹا ڈرائیور کی تنظیم سے مطابقت نہیں رکھتا. براہ کرم انتظامیہ سے رابطہ کریں.",
+      "odometerBelowLatest": "ریڈنگ تازہ ترین مکمل شفٹ اوڈومیٹر سے کم ہے."
+    },
+    "vehicle": "منسلک گاڑی",
+    "history": "درخواستوں کی تاریخ",
+    "submit": "درخواست جمع کریں",
+    "title": "میری درخواستیں",
+    "types": {
+      "leave": "چھٹی",
+      "oil_change": "آئل چینج",
+      "fuel": "ایندھن میں اضافہ",
+      "maintenance": "مرمت",
+      "meeting": "میٹنگ"
+    },
+    "scheduled": "مقررہ",
+    "choices": {
+      "leave": "چھٹی کی درخواست",
+      "oil-change": "آئل چینج کی درخواست",
+      "maintenance": "مرمت کی درخواست",
+      "meeting": "میٹنگ کی درخواست"
+    },
+    "leaveTypes": {
+      "sick": "بیماری کی چھٹی",
+      "weekly": "ہفتہ وار چھٹی",
+      "annual": "سالانہ چھٹی"
+    },
+    "notAvailable": "دستیاب نہیں",
+    "urgency": {
+      "urgent": "فوری",
+      "normal": "عادی"
+    },
+    "reviewNote": "جائزہ نوٹ",
+    "realtime": {
+      "updated": "درخواستیں اپ ڈیٹ ہو گئیں"
+    },
+    "empty": "ابھی کوئی درخواست جمع نہیں ہوئی",
+    "fields": {
+      "urgency": "اہمیت",
+      "preferredDate": "ترجیحی تاریخ",
+      "description": "مسئلے کی تفصیل",
+      "category": "مرمت کی قسم",
+      "preferredTime": "ترجیحی وقت",
+      "endDate": "اختتام تاریخ",
+      "startDate": "شروع تاریخ",
+      "subject": "موضوع",
+      "odometerReading": "موجودہ اوڈومیٹر ریڈنگ",
+      "leaveType": "چھٹی کی قسم",
+      "reason": "وجہ",
+      "note": "نوٹ"
+    }
+  },
+  "Salary": {
+    "title": "تنخواہ",
+    "empty": "فی الحال تنخواہ کی کوئی معلومات دستیاب نہیں"
+  },
+  "Tasks": {
+    "title": "ٹاسکس",
+    "empty": "فی الحال آپ کے لیے کوئی ٹاسک نہیں"
+  },
+  "Notifications": {
+    "title": "اطلاعات",
+    "empty": "فی الحال کوئی اطلاع نہیں",
+    "markRead": "پڑھا ہوا نشان زد کریں",
+    "markAllRead": "سب کو پڑھا ہوا نشان زد کریں",
+    "openRequest": "درخواست کھولیں",
+    "read": "پڑھا ہوا",
+    "unread": "نیا",
+    "updated": "اطلاعات اپ ڈیٹ ہو گئیں"
+  },
+  "Account": {
+    "organization": "ادارہ",
+    "vehiclePlate": "گاڑی کی پلیٹ",
+    "language": "زبان",
+    "changePassword": "پاس ورڈ تبدیل کریں",
+    "logout": "لاگ آؤٹ",
+    "notAvailable": "دستیاب نہیں",
+    "languages": {
+      "ar": "العربية",
+      "en": "English",
+      "ur": "اردو",
+      "bn": "বাংলা"
+    }
+  },
+  "Vehicle": {
+    "title": "گاڑی",
+    "empty": "فی الحال آپ کے اکاؤنٹ سے کوئی گاڑی منسلک نہیں",
+    "plate": "پلیٹ",
+    "type": "قسم",
+    "category": "زمرہ",
+    "operationalStatus": "آپریشنل حالت",
+    "technicalStatus": "تکنیکی حالت",
+    "operatingCardExpiry": "آپریٹنگ کارڈ کی میعاد",
+    "authorizationExpiry": "اجازت نامے کی میعاد",
+    "categories": {
+      "car": "کار",
+      "motorcycle": "موٹر سائیکل"
+    },
+    "operational": {
+      "active": "فعال",
+      "suspended": "معطل"
+    },
+    "technical": {
+      "healthy": "درست",
+      "fault": "خرابی",
+      "accident": "حادثہ"
+    }
+  },
+  "Shifts": {
+    "title": "شفٹیں",
+    "emptyTitle": "کوئی شفٹ نہیں",
+    "empty": "پہلی شفٹ شروع کرنے کے بعد شفٹیں یہاں نظر آئیں گی",
+    "startTime": "شروع",
+    "endTime": "اختتام",
+    "startReading": "ابتدائی ریڈنگ",
+    "endReading": "آخری ریڈنگ",
+    "distance": "فاصلہ",
+    "status": {
+      "open": "کھلی",
+      "completed": "مکمل",
+      "cancelled": "منسوخ"
+    }
+  },
+  "ChangePassword": {
+    "title": "پاس ورڈ تبدیل کریں",
+    "description": "ایپ استعمال کرنے سے پہلے عارضی پاس ورڈ تبدیل کرنا ضروری ہے",
+    "newPassword": "نیا پاس ورڈ",
+    "confirmPassword": "نئے پاس ورڈ کی تصدیق",
+    "submit": "پاس ورڈ محفوظ کریں اور جاری رکھیں",
+    "submitting": "پاس ورڈ محفوظ ہو رہا ہے...",
+    "continue": "جاری رکھیں",
+    "validation": {
+      "required": "نیا پاس ورڈ درج کریں اور اس کی تصدیق کریں",
+      "mismatch": "پاس ورڈز مطابقت نہیں رکھتے",
+      "weak": "کم از کم 8 حروف پر مشتمل مضبوط پاس ورڈ استعمال کریں",
+      "sessionUnavailable": "آپ کا سیشن ختم ہو گیا ہے۔ دوبارہ لاگ ان کریں۔",
+      "updateFailed": "پاس ورڈ محفوظ نہیں ہو سکا۔ دوبارہ کوشش کریں۔",
+      "finalizationRequired": "پاس ورڈ محفوظ ہو گیا ہے، مگر اکاؤنٹ کی تیاری مکمل ہونا باقی ہے۔ دوبارہ کوشش کے لیے جاری رکھیں دبائیں۔"
+    }
+  },
+  "Languages": {
+    "selector": "زبان منتخب کریں",
+    "ar": "العربية",
+    "en": "English",
+    "ur": "اردو",
+    "bn": "বাংলা"
+  }
+}

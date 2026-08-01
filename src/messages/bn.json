@@ -1,0 +1,327 @@
+{
+  "Metadata": {
+    "title": "Al Faris Group | ড্রাইভার অ্যাপ",
+    "description": "লজিস্টিকস সেবার জন্য Al Faris Group ড্রাইভার অ্যাপ"
+  },
+  "Brand": {
+    "name": "Al Faris Group",
+    "subtitle": "লজিস্টিকস সার্ভিস ম্যানেজমেন্ট সিস্টেম",
+    "logoAlt": "Al Faris Group লোগো"
+  },
+  "Splash": {
+    "title": "আপনার যাত্রা প্রস্তুত হচ্ছে",
+    "subtitle": "দক্ষ ডেলিভারি, নির্ভুল সম্পাদনা",
+    "loading": "লোড হচ্ছে"
+  },
+  "Login": {
+    "eyebrow": "সাইন ইন",
+    "welcomeTitle": "আবার স্বাগতম",
+    "description": "সিস্টেমে প্রবেশ করতে আপনার অ্যাকাউন্টের তথ্য দিন",
+    "driverIdLabel": "Driver ID",
+    "driverIdPlaceholder": "আপনার Driver ID লিখুন",
+    "passwordLabel": "পাসওয়ার্ড",
+    "passwordPlaceholder": "আপনার পাসওয়ার্ড লিখুন",
+    "showPassword": "পাসওয়ার্ড দেখান",
+    "hidePassword": "পাসওয়ার্ড লুকান",
+    "submit": "সাইন ইন",
+    "submitting": "সাইন ইন হচ্ছে...",
+    "validation": {
+      "driverIdRequired": "Driver ID প্রয়োজন",
+      "passwordRequired": "পাসওয়ার্ড প্রয়োজন",
+      "invalidCredentials": "Driver ID অথবা পাসওয়ার্ড সঠিক নয়",
+      "unauthorized": "এই অ্যাকাউন্টটি ড্রাইভার অ্যাপের জন্য অনুমোদিত নয়",
+      "networkError": "সেবার সঙ্গে সংযোগ করা যায়নি. আবার চেষ্টা করুন.",
+      "applicationError": "সংযুক্ত ড্রাইভারের তথ্য লোড করা যায়নি. পরে আবার চেষ্টা করুন."
+    }
+  },
+  "Home": {
+    "eyebrow": "ড্রাইভার অ্যাকাউন্ট",
+    "title": "সফলভাবে সাইন ইন হয়েছে",
+    "description": "আপনার অ্যাকাউন্ট ড্রাইভার প্রোফাইলের সঙ্গে যুক্ত.",
+    "mustChangePassword": "অ্যাপ ব্যবহার করার আগে অস্থায়ী পাসওয়ার্ড পরিবর্তন করতে হবে.",
+    "driverName": "ড্রাইভারের নাম",
+    "driverId": "Driver ID",
+    "organization": "প্রতিষ্ঠান",
+    "vehiclePlate": "সংযুক্ত গাড়ির প্লেট",
+    "status": "অ্যাকাউন্টের অবস্থা",
+    "applicationError": "প্রতিষ্ঠানের তথ্য লোড করা যায়নি. পরে আবার চেষ্টা করুন.",
+    "active": "সক্রিয়",
+    "suspended": "স্থগিত",
+    "notAvailable": "উপলব্ধ নয়",
+    "logout": "সাইন আউট",
+    "odometerTitle": "ওডোমিটার",
+    "shiftStates": {
+      "notStarted": "আজ আপনার শিফট শুরু হয়নি",
+      "open": "শিফট চলছে",
+      "completedToday": "আজ আপনার শিফট শেষ হয়েছে"
+    },
+    "startTime": "শুরুর সময়",
+    "endTime": "শেষের সময়",
+    "startReading": "শুরুর রিডিং",
+    "endReading": "শেষের রিডিং",
+    "distance": "অতিক্রান্ত দূরত্ব",
+    "ratingTitle": "আমার রেটিং",
+    "noRating": "এখনও কোনো রেটিং নেই",
+    "recentShift": "সাম্প্রতিক শিফট",
+    "verification": "যাচাই",
+    "verified": "যাচাই হয়েছে",
+    "reviewStatus": "Start review",
+    "endReviewStatus": "End review",
+    "reviewStatuses": {
+      "pending_review": "Pending review",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    }
+  },
+  "Shell": {
+    "welcome": "স্বাগতম, {name}",
+    "subtitle": "ড্রাইভার অ্যাপ",
+    "tasks": "টাস্ক",
+    "notifications": "নোটিফিকেশন",
+    "account": "অ্যাকাউন্ট",
+    "nav": {
+      "odometer": "ওডোমিটার",
+      "requests": "আমার অনুরোধ",
+      "shifts": "শিফট",
+      "vehicle": "গাড়ি",
+      "salary": "বেতন"
+    }
+  },
+  "Odometer": {
+    "startShift": "শিফট শুরু করুন",
+    "endShift": "শিফট শেষ করুন",
+    "readingLabel": "ওডোমিটার রিডিং",
+    "readingPlaceholder": "বর্তমান ওডোমিটার রিডিং লিখুন",
+    "confirmStart": "শিফট শুরু নিশ্চিত করুন",
+    "confirmEnd": "শিফট শেষ নিশ্চিত করুন",
+    "retake": "আবার ছবি তুলুন",
+    "saving": "সংরক্ষণ হচ্ছে...",
+    "capturedPhoto": "ওডোমিটার ছবি",
+    "errors": {
+      "photoRequired": "ওডোমিটার ছবি প্রয়োজন",
+      "invalidReading": "সঠিক ওডোমিটার রিডিং লিখুন",
+      "endBelowStart": "শেষ রিডিং শুরুর রিডিংয়ের কম হতে পারে না",
+      "sessionExpired": "আপনার সেশন শেষ হয়েছে. আবার সাইন ইন করুন.",
+      "uploadFailed": "ওডোমিটার ছবি আপলোড করা যায়নি. আবার চেষ্টা করুন.",
+      "saveFailed": "Could not save duty data. Please try again.",
+      "openExists": "ইতিমধ্যে একটি খোলা শিফট আছে",
+      "noOpenShift": "শেষ করার জন্য কোনো খোলা শিফট নেই",
+      "noVehicle": "এই অ্যাকাউন্টের সঙ্গে কোনো গাড়ি যুক্ত নেই",
+      "invalidPhoto": "এই ওডোমিটার ছবিটি যাচাই করা যায়নি.",
+      "ocrConfigMissing": "এই সার্ভারে ওডোমিটার যাচাইকরণ কনফিগার করা নেই.",
+      "unreadable": "ওডোমিটার স্পষ্টভাবে পড়া যায়নি. সংখ্যাগুলো ফ্রেমের ভিতরে রেখে আবার ছবি তুলুন.",
+      "mismatch": "লেখা সংখ্যাটি ওডোমিটার ছবিতে দেখা সংখ্যার সঙ্গে মেলেনি",
+      "ocrTimeout": "ওডোমিটার পড়তে বেশি সময় লাগছে. আবার চেষ্টা করুন.",
+      "networkFailed": "সার্ভারের সঙ্গে সংযোগ করা যায়নি. অ্যাপটি চলছে কিনা নিশ্চিত করে আবার চেষ্টা করুন.",
+      "requestAborted": "অনুরোধ বাতিল করা হয়েছে. আবার চেষ্টা করুন.",
+      "imageProcessingFailed": "ওডোমিটার ছবিটি প্রক্রিয়া করা যায়নি.",
+      "imageProcessorUnavailable": "ওডোমিটার ছবির প্রক্রিয়াকরণ সেবা বর্তমানে উপলব্ধ নয়, আবার চেষ্টা করুন.",
+      "driverLookupFailed": "অ্যাকাউন্টের সংযোগ পড়া যায়নি. আবার চেষ্টা করুন.",
+      "driverAccountNotLinked": "এই অ্যাপ অ্যাকাউন্ট ড্রাইভার ডেটার সঙ্গে যুক্ত নয়.",
+      "duplicateDriverLink": "এই অ্যাপ অ্যাকাউন্ট একাধিক ড্রাইভারের সঙ্গে যুক্ত. প্রশাসনের সঙ্গে যোগাযোগ করুন.",
+      "organizationLookupFailed": "ড্রাইভারের প্রতিষ্ঠান পড়া যায়নি. আবার চেষ্টা করুন.",
+      "organizationNotResolved": "ড্রাইভারের ডেটা থেকে প্রতিষ্ঠান নির্ধারণ করা যায়নি.",
+      "organizationInactive": "ড্রাইভারের প্রতিষ্ঠান বর্তমানে নিষ্ক্রিয়."
+    },
+    "steps": {
+      "matching": "Checking reading...",
+      "uploading": "Uploading photo...",
+      "reading": "Checking reading...",
+      "saving": "Saving duty data..."
+    },
+    "manualReading": "লেখা রিডিং: {value}",
+    "ocrReading": "ছবি থেকে পড়া রিডিং: {value}",
+    "submittedReading": "Reading: {value}",
+    "submittedAt": "Capture time: {value}",
+    "success": {
+      "start": "Start of duty was recorded and sent for review.",
+      "end": "End of duty was recorded and sent for review."
+    },
+    "reviewStatus": {
+      "pending_review": "Review status: Pending review"
+    }
+  },
+  "Camera": {
+    "title": "ওডোমিটার ক্যাপচার",
+    "instruction": "ওডোমিটারের সংখ্যাগুলো ফ্রেমের ভিতরে স্পষ্টভাবে রাখুন",
+    "loading": "ক্যামেরা খোলা হচ্ছে...",
+    "capture": "ছবি তুলুন",
+    "close": "ক্যামেরা বন্ধ করুন",
+    "retake": "আবার ছবি তুলুন",
+    "usePhoto": "ছবি ব্যবহার করুন",
+    "previewAlt": "ওডোমিটার ছবির প্রিভিউ",
+    "errors": {
+      "insecure": "ক্যামেরা ব্যবহার করতে নিরাপদ HTTPS সংযোগ প্রয়োজন",
+      "unavailable": "এই ডিভাইসে ক্যামেরা উপলব্ধ নয়",
+      "permission": "ক্যামেরার অনুমতি প্রত্যাখ্যান করা হয়েছে",
+      "noDevice": "কোনো ক্যামেরা ডিভাইস পাওয়া যায়নি",
+      "captureFailed": "ছবি তোলা যায়নি. আবার চেষ্টা করুন."
+    }
+  },
+  "Requests": {
+    "statuses": {
+      "completed": "সম্পন্ন",
+      "approved": "অনুমোদিত",
+      "pending": "পর্যালোচনার অপেক্ষায়",
+      "rejected": "প্রত্যাখ্যাত",
+      "cancelled": "বাতিল"
+    },
+    "errors": {
+      "invalidLeave": "সঠিক ছুটির তারিখ ও কারণ লিখুন.",
+      "invalidMaintenance": "বিভাগ, জরুরিতা, এবং সমস্যার বিবরণ লিখুন.",
+      "sessionUnavailable": "আপনার সেশন শেষ হয়েছে. আবার সাইন ইন করুন.",
+      "submitFailed": "অনুরোধ জমা দেওয়া যায়নি. আবার চেষ্টা করুন.",
+      "invalidOdometer": "সঠিক ওডোমিটার রিডিং লিখুন.",
+      "invalidMeeting": "বিষয় ও কারণ লিখুন.",
+      "vehicleRequired": "আপনার অ্যাকাউন্টের সঙ্গে কোনো গাড়ি যুক্ত নেই. ব্যবস্থাপনার সঙ্গে যোগাযোগ করুন.",
+      "vehicle_not_linked": "আপনার অ্যাকাউন্টের সঙ্গে কোনো গাড়ি যুক্ত নেই. ব্যবস্থাপনার সঙ্গে যোগাযোগ করুন.",
+      "vehicle_not_found": "আপনার অ্যাকাউন্টের সঙ্গে কোনো গাড়ি যুক্ত নেই. ব্যবস্থাপনার সঙ্গে যোগাযোগ করুন.",
+      "vehicle_ambiguous": "সংযুক্ত গাড়ির একাধিক রেকর্ড পাওয়া গেছে. অনুগ্রহ করে ব্যবস্থাপনার সঙ্গে যোগাযোগ করুন.",
+      "vehicle_inactive": "সংযুক্ত গাড়িটি বর্তমানে সক্রিয় নয়. অনুগ্রহ করে ব্যবস্থাপনার সঙ্গে যোগাযোগ করুন.",
+      "vehicle_organization_mismatch": "গাড়ির তথ্য ড্রাইভারের প্রতিষ্ঠানের সঙ্গে মেলে না. অনুগ্রহ করে ব্যবস্থাপনার সঙ্গে যোগাযোগ করুন.",
+      "odometerBelowLatest": "রিডিং সর্বশেষ সম্পন্ন শিফটের ওডোমিটার থেকে কম."
+    },
+    "vehicle": "সংযুক্ত গাড়ি",
+    "history": "অনুরোধের ইতিহাস",
+    "submit": "অনুরোধ জমা দিন",
+    "title": "আমার অনুরোধ",
+    "types": {
+      "leave": "ছুটি",
+      "oil_change": "তেল পরিবর্তন",
+      "fuel": "জ্বালানি বৃদ্ধি",
+      "maintenance": "রক্ষণাবেক্ষণ",
+      "meeting": "মিটিং"
+    },
+    "scheduled": "নির্ধারিত",
+    "choices": {
+      "leave": "ছুটির অনুরোধ",
+      "oil-change": "তেল পরিবর্তনের অনুরোধ",
+      "maintenance": "রক্ষণাবেক্ষণ অনুরোধ",
+      "meeting": "মিটিং অনুরোধ"
+    },
+    "leaveTypes": {
+      "sick": "অসুস্থতাজনিত ছুটি",
+      "weekly": "সাপ্তাহিক ছুটি",
+      "annual": "বার্ষিক ছুটি"
+    },
+    "notAvailable": "উপলব্ধ নয়",
+    "urgency": {
+      "urgent": "জরুরি",
+      "normal": "সাধারণ"
+    },
+    "reviewNote": "পর্যালোচনা নোট",
+    "realtime": {
+      "updated": "অনুরোধ আপডেট হয়েছে"
+    },
+    "empty": "এখনও কোনো অনুরোধ জমা হয়নি",
+    "fields": {
+      "urgency": "জরুরিতা",
+      "preferredDate": "পছন্দের তারিখ",
+      "description": "সমস্যার বিবরণ",
+      "category": "রক্ষণাবেক্ষণ বিভাগ",
+      "preferredTime": "পছন্দের সময়",
+      "endDate": "শেষের তারিখ",
+      "startDate": "শুরুর তারিখ",
+      "subject": "বিষয়",
+      "odometerReading": "বর্তমান ওডোমিটার রিডিং",
+      "leaveType": "ছুটির ধরন",
+      "reason": "কারণ",
+      "note": "নোট"
+    }
+  },
+  "Salary": {
+    "title": "বেতন",
+    "empty": "বর্তমানে কোনো বেতনের তথ্য উপলব্ধ নেই"
+  },
+  "Tasks": {
+    "title": "টাস্ক",
+    "empty": "এই মুহূর্তে আপনার জন্য কোনো টাস্ক নেই"
+  },
+  "Notifications": {
+    "title": "নোটিফিকেশন",
+    "empty": "এই মুহূর্তে কোনো নোটিফিকেশন নেই",
+    "markRead": "পড়া হয়েছে চিহ্নিত করুন",
+    "markAllRead": "সব পড়া হয়েছে চিহ্নিত করুন",
+    "openRequest": "অনুরোধ খুলুন",
+    "read": "পড়া হয়েছে",
+    "unread": "নতুন",
+    "updated": "নোটিফিকেশন আপডেট হয়েছে"
+  },
+  "Account": {
+    "organization": "প্রতিষ্ঠান",
+    "vehiclePlate": "গাড়ির প্লেট",
+    "language": "ভাষা",
+    "changePassword": "পাসওয়ার্ড পরিবর্তন করুন",
+    "logout": "সাইন আউট",
+    "notAvailable": "উপলব্ধ নয়",
+    "languages": {
+      "ar": "العربية",
+      "en": "English",
+      "ur": "اردو",
+      "bn": "বাংলা"
+    }
+  },
+  "Vehicle": {
+    "title": "গাড়ি",
+    "empty": "বর্তমানে আপনার অ্যাকাউন্টের সঙ্গে কোনো গাড়ি যুক্ত নেই",
+    "plate": "প্লেট",
+    "type": "ধরন",
+    "category": "শ্রেণি",
+    "operationalStatus": "অপারেশনাল অবস্থা",
+    "technicalStatus": "প্রযুক্তিগত অবস্থা",
+    "operatingCardExpiry": "অপারেটিং কার্ডের মেয়াদ",
+    "authorizationExpiry": "অনুমোদনের মেয়াদ",
+    "categories": {
+      "car": "গাড়ি",
+      "motorcycle": "মোটরসাইকেল"
+    },
+    "operational": {
+      "active": "সক্রিয়",
+      "suspended": "স্থগিত"
+    },
+    "technical": {
+      "healthy": "ভাল",
+      "fault": "ত্রুটি",
+      "accident": "দুর্ঘটনা"
+    }
+  },
+  "Shifts": {
+    "title": "শিফট",
+    "emptyTitle": "কোনো শিফট নেই",
+    "empty": "প্রথম শিফট শুরু করার পর শিফটগুলো এখানে দেখা যাবে",
+    "startTime": "শুরু",
+    "endTime": "শেষ",
+    "startReading": "শুরুর রিডিং",
+    "endReading": "শেষের রিডিং",
+    "distance": "দূরত্ব",
+    "status": {
+      "open": "খোলা",
+      "completed": "সম্পন্ন",
+      "cancelled": "বাতিল"
+    }
+  },
+  "ChangePassword": {
+    "title": "পাসওয়ার্ড পরিবর্তন করুন",
+    "description": "অ্যাপ ব্যবহার করার আগে অস্থায়ী পাসওয়ার্ড পরিবর্তন করতে হবে",
+    "newPassword": "নতুন পাসওয়ার্ড",
+    "confirmPassword": "নতুন পাসওয়ার্ড নিশ্চিত করুন",
+    "submit": "পাসওয়ার্ড সংরক্ষণ করে চালিয়ে যান",
+    "submitting": "পাসওয়ার্ড সংরক্ষণ হচ্ছে...",
+    "continue": "চালিয়ে যান",
+    "validation": {
+      "required": "নতুন পাসওয়ার্ড লিখুন এবং নিশ্চিত করুন",
+      "mismatch": "পাসওয়ার্ড দুটি মেলেনি",
+      "weak": "কমপক্ষে 8 অক্ষরের শক্তিশালী পাসওয়ার্ড ব্যবহার করুন",
+      "sessionUnavailable": "আপনার সেশন শেষ হয়েছে. আবার সাইন ইন করুন.",
+      "updateFailed": "পাসওয়ার্ড সংরক্ষণ করা যায়নি. আবার চেষ্টা করুন.",
+      "finalizationRequired": "পাসওয়ার্ড সংরক্ষণ হয়েছে, কিন্তু অ্যাকাউন্ট প্রস্তুতি শেষ করতে হবে. আবার চেষ্টা করতে চালিয়ে যান চাপুন."
+    }
+  },
+  "Languages": {
+    "selector": "ভাষা নির্বাচন করুন",
+    "ar": "العربية",
+    "en": "English",
+    "ur": "اردو",
+    "bn": "বাংলা"
+  }
+}

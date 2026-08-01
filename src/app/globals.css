@@ -1,26 +1,229 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-background: #f5f8fc;
+  --color-surface: #ffffff;
+  --color-primary: #0b6cfb;
+  --color-primary-hover: #0759d9;
+  --color-primary-soft: #edf5ff;
+  --color-navy: #10233f;
+  --color-muted: #718096;
+  --color-border: #e2eaf3;
+  --color-gold: #d7aa4b;
+  --color-danger: #dc2626;
+  --background: var(--color-background);
+  --foreground: var(--color-navy);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-surface: var(--color-surface);
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-primary-soft: var(--color-primary-soft);
+  --color-navy: var(--color-navy);
+  --color-muted: var(--color-muted);
+  --color-border: var(--color-border);
+  --color-gold: var(--color-gold);
+  --color-danger: var(--color-danger);
+  --font-sans: var(--font-app);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-app), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+html {
+  min-height: 100dvh;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+::selection {
+  background: var(--color-primary-soft);
+  color: var(--color-navy);
+}
+
+.alfaris-splash-light {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(215, 170, 75, 0.16), transparent 30%),
+    radial-gradient(circle at 16% 72%, rgba(11, 108, 251, 0.16), transparent 28%),
+    radial-gradient(circle at 84% 62%, rgba(255, 255, 255, 0.08), transparent 24%);
+}
+
+.alfaris-splash-exit {
+  animation: alfaris-splash-fade-out 500ms ease forwards;
+}
+
+.alfaris-splash-brand {
+  animation: alfaris-splash-rise 420ms ease both;
+}
+
+.alfaris-splash-copy {
+  animation: alfaris-splash-rise 520ms ease 180ms both;
+}
+
+.alfaris-delivery-scene {
+  overflow: visible;
+}
+
+.alfaris-vehicle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: alfaris-vehicle-drive 3000ms cubic-bezier(0.16, 0.8, 0.26, 1) 300ms both;
+}
+
+.alfaris-wheel {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: alfaris-wheel-spin 700ms linear 300ms 4;
+}
+
+.alfaris-parcel {
+  animation: alfaris-parcel-bounce 980ms ease-in-out 300ms 3;
+}
+
+.alfaris-pin {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: alfaris-pin-soft-pulse 1200ms ease-in-out 1600ms 2;
+}
+
+.alfaris-pin-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: alfaris-destination-pulse 1300ms ease-out 1700ms 2;
+}
+
+.alfaris-check {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: alfaris-check-in 620ms ease 2860ms forwards;
+}
+
+.alfaris-splash-reduced .alfaris-vehicle,
+.alfaris-splash-reduced .alfaris-wheel,
+.alfaris-splash-reduced .alfaris-parcel,
+.alfaris-splash-reduced .alfaris-pin,
+.alfaris-splash-reduced .alfaris-pin-pulse {
+  animation: none;
+}
+
+.alfaris-splash-reduced .alfaris-check {
+  animation: alfaris-check-in 420ms ease 1200ms forwards;
+}
+
+@keyframes alfaris-splash-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes alfaris-splash-fade-out {
+  to {
+    opacity: 0;
+    transform: scale(0.995);
+  }
+}
+
+@keyframes alfaris-vehicle-drive {
+  0% {
+    transform: translateX(-170px);
+  }
+  72% {
+    transform: translateX(78px);
+  }
+  100% {
+    transform: translateX(92px);
+  }
+}
+
+@keyframes alfaris-wheel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes alfaris-parcel-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes alfaris-pin-soft-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes alfaris-destination-pulse {
+  from {
+    opacity: 0.72;
+    transform: scale(0.76);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+
+@keyframes alfaris-check-in {
+  from {
+    opacity: 0;
+    transform: scale(0.78);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

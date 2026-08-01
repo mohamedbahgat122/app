@@ -3,13 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "dev:https": "next dev --experimental-https --hostname 0.0.0.0",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "check:i18n": "node scripts/check-i18n-mojibake.mjs",
+    "lint": "npm run check:i18n && eslint"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.4",
+    "@supabase/supabase-js": "^2.111.0",
     "next": "16.2.12",
+    "next-intl": "^4.13.4",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
