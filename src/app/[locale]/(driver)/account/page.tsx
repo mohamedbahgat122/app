@@ -1,7 +1,5 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { logoutDriverAction } from "@/app/[locale]/actions";
-import { AppError } from "@/components/app-shell/app-error";
-import { DriverAppShell } from "@/components/app-shell/driver-app-shell";
 import { DriverAvatar } from "@/components/app-shell/driver-avatar";
 import { PageCard } from "@/components/app-shell/page-card";
 import { isLocale } from "@/config/locales";
@@ -15,12 +13,11 @@ export default async function AccountPage({ params }: RouteProps) {
   if (!isLocale(locale)) return null;
   setRequestLocale(locale);
   const app = await loadDriverAppContext(locale);
-  if (app.status === "application_error") return <AppError locale={locale} />;
+  if (app.status === "application_error") return null;
   const t = await getTranslations({ locale, namespace: "Account" });
 
   return (
-    <DriverAppShell context={app.context}>
-      <div className="space-y-4">
+    <div className="space-y-4">
         <PageCard>
           <div className="flex items-center gap-3">
             <DriverAvatar
@@ -56,8 +53,7 @@ export default async function AccountPage({ params }: RouteProps) {
             {t("logout")}
           </button>
         </form>
-      </div>
-    </DriverAppShell>
+    </div>
   );
 }
 

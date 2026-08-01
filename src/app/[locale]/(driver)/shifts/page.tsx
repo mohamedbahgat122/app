@@ -1,6 +1,4 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { AppError } from "@/components/app-shell/app-error";
-import { DriverAppShell } from "@/components/app-shell/driver-app-shell";
 import { EmptyState, PageCard } from "@/components/app-shell/page-card";
 import { isLocale } from "@/config/locales";
 import { loadDriverAppContext, loadShiftSummary } from "@/lib/app/driver-app-data";
@@ -12,12 +10,14 @@ export default async function ShiftsPage({ params }: RouteProps) {
   if (!isLocale(locale)) return null;
   setRequestLocale(locale);
   const app = await loadDriverAppContext(locale);
-  if (app.status === "application_error") return <AppError locale={locale} />;
+  if (app.status === "application_error") return null;
   const t = await getTranslations({ locale, namespace: "Shifts" });
-  const { recentShifts } = await loadShiftSummary(app.context.session.driver.id);
+  const { recentShifts } = await loadShiftSummary(
+    app.context.session.driver.id,
+    app.supabase,
+  );
 
   return (
-    <DriverAppShell context={app.context}>
       <div className="space-y-4">
         <h1 className="text-[1.45rem] font-bold text-navy">{t("title")}</h1>
         {recentShifts.length === 0 ? (
@@ -49,7 +49,6 @@ export default async function ShiftsPage({ params }: RouteProps) {
           ))
         )}
       </div>
-    </DriverAppShell>
   );
 }
 

@@ -1,6 +1,4 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { AppError } from "@/components/app-shell/app-error";
-import { DriverAppShell } from "@/components/app-shell/driver-app-shell";
 import { PageCard } from "@/components/app-shell/page-card";
 import { ShiftActionCard } from "@/components/odometer/shift-action-card";
 import { isLocale } from "@/config/locales";
@@ -25,12 +23,11 @@ export default async function HomeRoute({ params }: HomeRouteProps) {
 
   const t = await getTranslations({ locale, namespace: "Home" });
 
-  if (app.status === "application_error") {
-    return <AppError locale={locale} />;
-  }
+  if (app.status === "application_error") return null;
 
   const { openShift, latestShift, recentShifts } = await loadShiftSummary(
     app.context.session.driver.id,
+    app.supabase,
   );
   const completedToday = isToday(latestShift?.ended_at);
   const shiftStatus = openShift
@@ -41,7 +38,6 @@ export default async function HomeRoute({ params }: HomeRouteProps) {
   const displayedShift = openShift ?? latestShift;
 
   return (
-    <DriverAppShell context={app.context}>
       <div className="space-y-4">
         <div>
           <p className="text-sm font-bold text-primary">
@@ -106,7 +102,6 @@ export default async function HomeRoute({ params }: HomeRouteProps) {
           </PageCard>
         ) : null}
       </div>
-    </DriverAppShell>
   );
 }
 

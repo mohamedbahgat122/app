@@ -1,6 +1,4 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { AppError } from "@/components/app-shell/app-error";
-import { DriverAppShell } from "@/components/app-shell/driver-app-shell";
 import {
   markAllDriverNotificationsReadAction,
   markDriverNotificationReadAction,
@@ -16,12 +14,11 @@ export default async function NotificationsPage({ params }: RouteProps) {
   if (!isLocale(locale)) return null;
   setRequestLocale(locale);
   const app = await loadDriverAppContext(locale);
-  if (app.status === "application_error") return <AppError locale={locale} />;
+  if (app.status === "application_error") return null;
   const t = await getTranslations({ locale, namespace: "Notifications" });
   const notifications = await loadDriverNotifications({ supabase: app.supabase });
 
   return (
-    <DriverAppShell context={app.context}>
       <main className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-xl font-bold text-navy">{t("title")}</h1>
@@ -80,6 +77,5 @@ export default async function NotificationsPage({ params }: RouteProps) {
           </div>
         )}
       </main>
-    </DriverAppShell>
   );
 }

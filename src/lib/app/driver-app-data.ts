@@ -1,6 +1,7 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import type { Locale } from "@/config/locales";
 import type { VerifiedDriverSession } from "@/lib/auth/driver-session";
 import { getVerifiedDriverSession } from "@/lib/auth/driver-session";
@@ -24,7 +25,9 @@ export type ShiftSummary = {
   recentShifts: DriverShiftRow[];
 };
 
-export async function loadDriverAppContext(locale: Locale) {
+export const loadDriverAppContext = cache(async function loadDriverAppContext(
+  locale: Locale,
+) {
   const supabase = await createSupabaseServerClient();
   const sessionResult = await getVerifiedDriverSession(supabase);
 
@@ -66,11 +69,14 @@ export async function loadDriverAppContext(locale: Locale) {
     },
     supabase,
   };
-}
+});
 
-export async function loadShiftSummary(driverId: string): Promise<ShiftSummary> {
-  const supabase = await createSupabaseServerClient();
-  const { data: recentShifts, error } = await supabase
+export async function loadShiftSummary(
+  driverId: string,
+  supabase?: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+): Promise<ShiftSummary> {
+  const client = supabase ?? (await createSupabaseServerClient());
+  const { data: recentShifts, error } = await client
     .from("driver_shifts")
     .select(
       "id, driver_id, organization_id, vehicle_id, vehicle_plate_snapshot, status, started_at, start_odometer_reading, start_ocr_reading, start_ocr_confidence, start_ocr_status, start_ocr_provider, start_verified_at, start_photo_path, start_photo_captured_at, start_review_status, start_reviewed_by, start_reviewed_at, start_review_note, ended_at, end_odometer_reading, end_ocr_reading, end_ocr_confidence, end_ocr_status, end_ocr_provider, end_verified_at, end_photo_path, end_photo_captured_at, end_review_status, end_reviewed_by, end_reviewed_at, end_review_note, created_at, updated_at",

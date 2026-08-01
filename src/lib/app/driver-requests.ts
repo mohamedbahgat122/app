@@ -52,19 +52,24 @@ export async function loadDriverRequestHistory({
   }
 
   const appRequests = appResult.data ?? [];
-  const detailIds = appRequests.map((request) => request.id);
+  const meetingRequestIds = appRequests
+    .filter((request) => request.request_type === "meeting")
+    .map((request) => request.id);
+  const oilChangeRequestIds = appRequests
+    .filter((request) => request.request_type === "oil_change")
+    .map((request) => request.id);
   const [meetingDetails, oilDetails] = await Promise.all([
-    detailIds.length
+    meetingRequestIds.length
       ? supabase
           .from("driver_app_meeting_request_details")
           .select("request_id, subject, scheduled_at")
-          .in("request_id", detailIds)
+          .in("request_id", meetingRequestIds)
       : { data: [] },
-    detailIds.length
+    oilChangeRequestIds.length
       ? supabase
           .from("driver_app_oil_change_request_details")
           .select("request_id, current_odometer_reading, scheduled_at")
-          .in("request_id", detailIds)
+          .in("request_id", oilChangeRequestIds)
       : { data: [] },
   ]);
   const meetingById = new Map(

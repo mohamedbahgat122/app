@@ -1,13 +1,10 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { AppError } from "@/components/app-shell/app-error";
-import { DriverAppShell } from "@/components/app-shell/driver-app-shell";
 import { RealtimeRefresh } from "@/components/app-shell/realtime-refresh";
 import { RequestStatusBadge } from "@/components/requests/request-status-badge";
 import { isLocale } from "@/config/locales";
+import { Link } from "@/i18n/navigation";
 import { loadDriverAppContext } from "@/lib/app/driver-app-data";
 import { loadDriverRequestHistory } from "@/lib/app/driver-requests";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import Link from "next/link";
 
 type RouteProps = { params: Promise<{ locale: string }> };
 
@@ -16,17 +13,16 @@ export default async function RequestsPage({ params }: RouteProps) {
   if (!isLocale(locale)) return null;
   setRequestLocale(locale);
   const app = await loadDriverAppContext(locale);
-  if (app.status === "application_error") return <AppError locale={locale} />;
+  if (app.status === "application_error") return null;
   const t = await getTranslations({ locale, namespace: "Requests" });
-  const supabase = await createSupabaseServerClient();
   const history = await loadDriverRequestHistory({
-    supabase,
+    supabase: app.supabase,
     driverId: app.context.session.driver.id,
   });
   const requestTypes = ["leave", "maintenance", "meeting", "oil-change"] as const;
 
   return (
-    <DriverAppShell context={app.context}>
+    <>
       <RealtimeRefresh
         channelName={`driver-requests-${app.context.session.driver.id}`}
         table="driver_app_requests"
@@ -40,7 +36,7 @@ export default async function RequestsPage({ params }: RouteProps) {
             {requestTypes.map((type) => (
               <Link
                 key={type}
-                href={`/${locale}/requests/new/${type}`}
+                href={`/requests/new/${type}`}
                 className="flex min-h-14 items-center justify-between rounded-[0.85rem] border border-border bg-primary-soft/60 px-4 text-sm font-bold text-navy"
               >
                 <span>{t(`choices.${type}`)}</span>
@@ -98,6 +94,6 @@ export default async function RequestsPage({ params }: RouteProps) {
           )}
         </section>
       </main>
-    </DriverAppShell>
+    </>
   );
 }
