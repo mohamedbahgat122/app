@@ -43,8 +43,10 @@ export const metadata: Metadata = {
     template: "%s",
   },
   description: "Al Faris Group driver application",
+  manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/brand/al-faris-logo-cropped.png",
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
   },
   robots: {
     index: false,

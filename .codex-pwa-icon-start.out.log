@@ -1,0 +1,8 @@
+
+> alfaris-driver-pwa@0.1.0 start
+> next start -p 3105
+
+▲ Next.js 16.2.12
+- Local:         http://localhost:3105
+- Network:       http://172.20.10.4:3105
+✓ Ready in 621ms

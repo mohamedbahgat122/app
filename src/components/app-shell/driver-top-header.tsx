@@ -1,6 +1,7 @@
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { DriverAvatar } from "@/components/app-shell/driver-avatar";
+import { HeaderLanguageSwitch } from "@/components/app-shell/header-language-switch";
 import { BellIcon, TasksIcon } from "@/components/app-shell/icons";
 import { Link } from "@/i18n/navigation";
 
@@ -22,7 +23,7 @@ export function DriverTopHeader({
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-surface/95 px-[clamp(18px,5vw,24px)] pb-3 pt-[max(0.9rem,env(safe-area-inset-top))] backdrop-blur">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-2.5">
         <div className="min-w-0">
           <p className="truncate text-[1.05rem] font-bold leading-6 text-navy">
             {t("welcome", { name: firstName })}
@@ -31,7 +32,8 @@ export function DriverTopHeader({
             {t("subtitle")}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1">
+          <HeaderLanguageSwitch />
           <HeaderIconLink href="/tasks" label={t("tasks")} count={taskCount}>
             <TasksIcon />
           </HeaderIconLink>

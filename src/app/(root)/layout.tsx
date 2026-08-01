@@ -16,8 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Al Faris Group | Driver App",
   description: "Al Faris Group driver application",
+  manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/brand/al-faris-logo-cropped.png",
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
   },
   robots: {
     index: false,
