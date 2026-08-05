@@ -13,12 +13,17 @@
     "subtitle": "Delivering efficiently with precise execution",
     "loading": "Loading"
   },
+  "Loading": {
+    "data": "Loading data..."
+  },
   "Login": {
     "eyebrow": "Sign in",
     "welcomeTitle": "Welcome back",
     "description": "Enter your account details to access the system",
     "driverIdLabel": "Driver ID",
     "driverIdPlaceholder": "Enter your Driver ID",
+    "residencyNumberLabel": "Residency number",
+    "residencyNumberPlaceholder": "Enter your residency number",
     "passwordLabel": "Password",
     "passwordPlaceholder": "Enter your password",
     "showPassword": "Show password",
@@ -27,8 +32,9 @@
     "submitting": "Signing in...",
     "validation": {
       "driverIdRequired": "Driver ID is required",
+      "residencyNumberRequired": "Residency number is required",
       "passwordRequired": "Password is required",
-      "invalidCredentials": "The Driver ID or password is incorrect",
+      "invalidCredentials": "The residency number or password is incorrect.",
       "unauthorized": "This account is not authorized for the driver app",
       "networkError": "Could not connect to the service. Please try again.",
       "applicationError": "Could not load your linked driver details. Please try again later."
@@ -163,6 +169,7 @@
     "empty": "No requests have been submitted yet",
     "history": "Request History",
     "submit": "Submit Request",
+    "sending": "Sending request...",
     "vehicle": "Linked vehicle",
     "notAvailable": "Not available",
     "scheduled": "Scheduled",
@@ -198,6 +205,8 @@
       "category": "Maintenance category",
       "urgency": "Urgency",
       "description": "Problem description",
+      "meetingWith": "Meeting with",
+      "meetingWithPlaceholder": "Select the person you want to meet",
       "subject": "Subject",
       "preferredDate": "Preferred date",
       "preferredTime": "Preferred time",
@@ -224,10 +233,18 @@
       "vehicle_ambiguous": "More than one linked vehicle record was found. Please contact management.",
       "vehicle_inactive": "The linked vehicle is not active right now. Please contact management.",
       "vehicle_organization_mismatch": "The vehicle data does not match the driver's organization. Please contact management.",
+      "meeting_manager_required": "Select the person you want to meet.",
+      "meeting_manager_not_found": "The selected management account does not exist.",
+      "meeting_manager_inactive": "The selected management account is not active right now.",
+      "meeting_manager_not_authorized": "The selected management account is not available for meeting requests.",
+      "meeting_manager_organization_mismatch": "You cannot send a meeting request to a user from another organization.",
       "odometerBelowLatest": "The reading is below the latest completed shift odometer.",
       "sessionUnavailable": "Your session has ended. Sign in again.",
       "submitFailed": "Request could not be submitted. Please try again."
-    }
+    },
+    "emptyMeetingManagers": "No management user is currently available for meetings. Contact management.",
+    "meetingWith": "Meeting with",
+    "managerNotSpecified": "Not specified"
   },
   "Salary": {
     "title": "Salary",
@@ -243,9 +260,122 @@
     "markRead": "Mark read",
     "markAllRead": "Mark all read",
     "openRequest": "Open request",
+    "openWarning": "Open warning",
+    "openTask": "Open task",
+    "open": "Open",
     "read": "Read",
     "unread": "Unread",
-    "updated": "Notifications updated"
+    "updated": "Notifications updated",
+    "notAvailable": "Not available",
+    "driverFallback": "A driver",
+    "localized": {
+      "driver_warning_issued": {
+        "title": "New driver warning",
+        "message": "A new administrative warning has been issued. Open it to review the details."
+      },
+      "driver_app_request_submitted": {
+        "leave": {
+          "title": "New leave request",
+          "message": "{driverName} submitted a leave request."
+        },
+        "maintenance": {
+          "title": "New maintenance request",
+          "message": "{driverName} submitted a maintenance request."
+        },
+        "meeting": {
+          "title": "New interview request",
+          "message": "{driverName} submitted an interview request."
+        },
+        "oil_change": {
+          "title": "New oil change request",
+          "message": "{driverName} submitted an oil change request."
+        }
+      },
+      "driver_app_request_approved": {
+        "leave": {
+          "title": "Leave request approved",
+          "message": "Your leave request was approved."
+        },
+        "maintenance": {
+          "title": "Maintenance request approved",
+          "message": "Your maintenance request was approved."
+        },
+        "meeting": {
+          "title": "Interview request approved",
+          "message": "Your interview request was approved."
+        },
+        "oil_change": {
+          "title": "Oil change request approved",
+          "message": "Your oil change request was approved."
+        }
+      },
+      "driver_app_request_rejected": {
+        "leave": {
+          "title": "Leave request rejected",
+          "message": "Your leave request was rejected."
+        },
+        "maintenance": {
+          "title": "Maintenance request rejected",
+          "message": "Your maintenance request was rejected."
+        },
+        "meeting": {
+          "title": "Interview request rejected",
+          "message": "Your interview request was rejected."
+        },
+        "oil_change": {
+          "title": "Oil change request rejected",
+          "message": "Your oil change request was rejected."
+        }
+      },
+      "task_assigned": {
+        "title": "New task assigned",
+        "message": "A new task has been assigned to you."
+      },
+      "task_updated": {
+        "title": "Task updated",
+        "message": "One of your tasks has been updated."
+      }
+    }
+  },
+  "Warnings": {
+    "title": "Warnings",
+    "description": "Administrative warnings issued by your organization.",
+    "empty": "No warnings are currently assigned to you",
+    "back": "Back to warnings",
+    "seen": "Seen",
+    "notSeen": "Not seen yet",
+    "notAvailable": "Not available",
+    "realtime": {
+      "updated": "Warnings updated"
+    },
+    "categories": {
+      "attendance": "Attendance",
+      "behavior": "Behavior",
+      "compliance": "Compliance",
+      "documentation": "Documentation",
+      "performance": "Performance",
+      "safety": "Safety",
+      "vehicle_care": "Vehicle care",
+      "other": "Other"
+    },
+    "severities": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "statuses": {
+      "active": "Active",
+      "revoked": "Revoked"
+    },
+    "fields": {
+      "status": "Status",
+      "issuedAt": "Issued at",
+      "incidentAt": "Incident time",
+      "seenAt": "Seen at",
+      "revokedAt": "Revoked at",
+      "revokeReason": "Revoke reason",
+      "description": "Description"
+    }
   },
   "Account": {
     "organization": "Organization",
@@ -287,10 +417,19 @@
   },
   "Shifts": {
     "title": "Shifts",
-    "emptyTitle": "No shifts",
-    "empty": "Your shifts will appear after you start the first one",
+    "emptyTitle": "You do not have an assigned shift.",
+    "empty": "Shift details will appear here when assigned by management.",
     "startTime": "Start",
     "endTime": "End",
+    "overnight": "Extends to the next day",
+    "sameDay": "Same day",
+    "break": "Break",
+    "noBreak": "No break",
+    "totalDuration": "Total duration",
+    "breakDuration": "Break duration",
+    "effectiveDuration": "Effective working hours",
+    "shiftInstructions": "Shift instructions",
+    "updated": "Shift assignment updated",
     "startReading": "Start reading",
     "endReading": "End reading",
     "distance": "Distance",

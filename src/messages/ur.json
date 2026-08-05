@@ -19,6 +19,8 @@
     "description": "سسٹم تک رسائی کے لیے اپنے اکاؤنٹ کی معلومات درج کریں",
     "driverIdLabel": "ڈرائیور ID",
     "driverIdPlaceholder": "اپنا ڈرائیور ID درج کریں",
+    "residencyNumberLabel": "اقامہ نمبر",
+    "residencyNumberPlaceholder": "اپنا اقامہ نمبر درج کریں",
     "passwordLabel": "پاس ورڈ",
     "passwordPlaceholder": "اپنا پاس ورڈ درج کریں",
     "showPassword": "پاس ورڈ دکھائیں",
@@ -27,8 +29,9 @@
     "submitting": "لاگ ان ہو رہا ہے...",
     "validation": {
       "driverIdRequired": "ڈرائیور ID ضروری ہے",
+      "residencyNumberRequired": "اقامہ نمبر ضروری ہے",
       "passwordRequired": "پاس ورڈ ضروری ہے",
-      "invalidCredentials": "ڈرائیور ID یا پاس ورڈ درست نہیں ہے",
+      "invalidCredentials": "اقامہ نمبر یا پاس ورڈ درست نہیں ہے۔",
       "unauthorized": "یہ اکاؤنٹ ڈرائیور ایپ کے لیے مجاز نہیں ہے",
       "networkError": "سروس سے رابطہ نہیں ہو سکا۔ دوبارہ کوشش کریں۔",
       "applicationError": "منسلک ڈرائیور کی معلومات لوڈ نہیں ہو سکیں۔ بعد میں دوبارہ کوشش کریں۔"
@@ -65,12 +68,12 @@
     "recentShift": "حالیہ شفٹ",
     "verification": "تصدیق",
     "verified": "تصدیق شدہ",
-    "reviewStatus": "Start review",
-    "endReviewStatus": "End review",
+    "reviewStatus": "آغاز کا جائزہ",
+    "endReviewStatus": "اختتام کا جائزہ",
     "reviewStatuses": {
-      "pending_review": "Pending review",
-      "approved": "Approved",
-      "rejected": "Rejected"
+      "pending_review": "جائزے کے منتظر",
+      "approved": "منظور شدہ",
+      "rejected": "مسترد"
     }
   },
   "Shell": {
@@ -103,7 +106,7 @@
       "endBelowStart": "اختتامی ریڈنگ ابتدائی ریڈنگ سے کم نہیں ہو سکتی",
       "sessionExpired": "آپ کا سیشن ختم ہو گیا ہے۔ دوبارہ لاگ ان کریں۔",
       "uploadFailed": "اوڈومیٹر تصویر اپ لوڈ نہیں ہو سکی۔ دوبارہ کوشش کریں۔",
-      "saveFailed": "Could not save duty data. Please try again.",
+      "saveFailed": "شفٹ کا ڈیٹا محفوظ نہیں ہو سکا۔ دوبارہ کوشش کریں۔",
       "openExists": "ایک شفٹ پہلے ہی کھلی ہوئی ہے",
       "noOpenShift": "ختم کرنے کے لیے کوئی کھلی شفٹ نہیں ہے",
       "noVehicle": "اس اکاؤنٹ سے کوئی گاڑی منسلک نہیں",
@@ -124,21 +127,21 @@
       "organizationInactive": "ڈرائیور کا ادارہ فی الحال غیر فعال ہے."
     },
     "steps": {
-      "matching": "Checking reading...",
-      "uploading": "Uploading photo...",
-      "reading": "Checking reading...",
-      "saving": "Saving duty data..."
+      "matching": "ریڈنگ چیک ہو رہی ہے...",
+      "uploading": "تصویر اپ لوڈ ہو رہی ہے...",
+      "reading": "ریڈنگ چیک ہو رہی ہے...",
+      "saving": "شفٹ کا ڈیٹا محفوظ ہو رہا ہے..."
     },
     "manualReading": "درج کردہ ریڈنگ: {value}",
     "ocrReading": "تصویر سے پڑھی گئی ریڈنگ: {value}",
-    "submittedReading": "Reading: {value}",
-    "submittedAt": "Capture time: {value}",
+    "submittedReading": "ریڈنگ: {value}",
+    "submittedAt": "تصویر لینے کا وقت: {value}",
     "success": {
-      "start": "Start of duty was recorded and sent for review.",
-      "end": "End of duty was recorded and sent for review."
+      "start": "شفٹ کا آغاز ریکارڈ کر کے جائزے کے لیے بھیج دیا گیا۔",
+      "end": "شفٹ کا اختتام ریکارڈ کر کے جائزے کے لیے بھیج دیا گیا۔"
     },
     "reviewStatus": {
-      "pending_review": "Review status: Pending review"
+      "pending_review": "جائزے کی حالت: جائزے کے منتظر"
     }
   },
   "Camera": {
@@ -179,11 +182,17 @@
       "vehicle_ambiguous": "منسلک گاڑی کے ایک سے زیادہ ریکارڈ موجود ہیں. براہ کرم انتظامیہ سے رابطہ کریں.",
       "vehicle_inactive": "منسلک گاڑی فی الحال فعال نہیں. براہ کرم انتظامیہ سے رابطہ کریں.",
       "vehicle_organization_mismatch": "گاڑی کا ڈیٹا ڈرائیور کی تنظیم سے مطابقت نہیں رکھتا. براہ کرم انتظامیہ سے رابطہ کریں.",
-      "odometerBelowLatest": "ریڈنگ تازہ ترین مکمل شفٹ اوڈومیٹر سے کم ہے."
+      "odometerBelowLatest": "ریڈنگ تازہ ترین مکمل شفٹ اوڈومیٹر سے کم ہے.",
+      "meeting_manager_required": "وہ شخص منتخب کریں جس سے آپ ملنا چاہتے ہیں۔",
+      "meeting_manager_not_found": "منتخب انتظامی اکاؤنٹ موجود نہیں۔",
+      "meeting_manager_inactive": "منتخب انتظامی اکاؤنٹ اس وقت فعال نہیں۔",
+      "meeting_manager_not_authorized": "منتخب انتظامی اکاؤنٹ ملاقات کی درخواستوں کے لیے دستیاب نہیں۔",
+      "meeting_manager_organization_mismatch": "آپ دوسری تنظیم کے صارف کو ملاقات کی درخواست نہیں بھیج سکتے۔"
     },
     "vehicle": "منسلک گاڑی",
     "history": "درخواستوں کی تاریخ",
     "submit": "درخواست جمع کریں",
+    "sending": "درخواست بھیجی جا رہی ہے...",
     "title": "میری درخواستیں",
     "types": {
       "leave": "چھٹی",
@@ -220,6 +229,8 @@
       "description": "مسئلے کی تفصیل",
       "category": "مرمت کی قسم",
       "preferredTime": "ترجیحی وقت",
+      "meetingWith": "ملاقات کس کے ساتھ",
+      "meetingWithPlaceholder": "وہ شخص منتخب کریں جس سے آپ ملنا چاہتے ہیں",
       "endDate": "اختتام تاریخ",
       "startDate": "شروع تاریخ",
       "subject": "موضوع",
@@ -227,7 +238,10 @@
       "leaveType": "چھٹی کی قسم",
       "reason": "وجہ",
       "note": "نوٹ"
-    }
+    },
+    "emptyMeetingManagers": "فی الحال ملاقات کے لیے کوئی انتظامی صارف دستیاب نہیں۔ انتظامیہ سے رابطہ کریں۔",
+    "meetingWith": "ملاقات کس کے ساتھ",
+    "managerNotSpecified": "متعین نہیں"
   },
   "Salary": {
     "title": "تنخواہ",
@@ -243,9 +257,122 @@
     "markRead": "پڑھا ہوا نشان زد کریں",
     "markAllRead": "سب کو پڑھا ہوا نشان زد کریں",
     "openRequest": "درخواست کھولیں",
+    "openWarning": "انتباہ کھولیں",
     "read": "پڑھا ہوا",
     "unread": "نیا",
-    "updated": "اطلاعات اپ ڈیٹ ہو گئیں"
+    "updated": "اطلاعات اپ ڈیٹ ہو گئیں",
+    "notAvailable": "دستیاب نہیں",
+    "openTask": "کام کھولیں",
+    "open": "کھولیں",
+    "localized": {
+      "driver_warning_issued": {
+        "title": "نیا ڈرائیور انتباہ",
+        "message": "آپ کے لیے نیا انتظامی انتباہ جاری کیا گیا ہے۔ تفصیلات دیکھنے کے لیے اسے کھولیں۔"
+      },
+      "driver_app_request_submitted": {
+        "leave": {
+          "title": "نئی چھٹی کی درخواست",
+          "message": "{driverName} نے چھٹی کی درخواست جمع کرائی۔"
+        },
+        "maintenance": {
+          "title": "نئی مرمت کی درخواست",
+          "message": "{driverName} نے مرمت کی درخواست جمع کرائی۔"
+        },
+        "meeting": {
+          "title": "نئی ملاقات کی درخواست",
+          "message": "{driverName} نے ملاقات کی درخواست جمع کرائی۔"
+        },
+        "oil_change": {
+          "title": "نئی آئل چینج درخواست",
+          "message": "{driverName} نے آئل چینج کی درخواست جمع کرائی۔"
+        }
+      },
+      "driver_app_request_approved": {
+        "leave": {
+          "title": "چھٹی کی درخواست منظور ہو گئی",
+          "message": "آپ کی چھٹی کی درخواست منظور ہو گئی۔"
+        },
+        "maintenance": {
+          "title": "مرمت کی درخواست منظور ہو گئی",
+          "message": "آپ کی مرمت کی درخواست منظور ہو گئی۔"
+        },
+        "meeting": {
+          "title": "ملاقات کی درخواست منظور ہو گئی",
+          "message": "آپ کی ملاقات کی درخواست منظور ہو گئی۔"
+        },
+        "oil_change": {
+          "title": "آئل چینج درخواست منظور ہو گئی",
+          "message": "آپ کی آئل چینج درخواست منظور ہو گئی۔"
+        }
+      },
+      "driver_app_request_rejected": {
+        "leave": {
+          "title": "چھٹی کی درخواست مسترد ہو گئی",
+          "message": "آپ کی چھٹی کی درخواست مسترد ہو گئی۔"
+        },
+        "maintenance": {
+          "title": "مرمت کی درخواست مسترد ہو گئی",
+          "message": "آپ کی مرمت کی درخواست مسترد ہو گئی۔"
+        },
+        "meeting": {
+          "title": "ملاقات کی درخواست مسترد ہو گئی",
+          "message": "آپ کی ملاقات کی درخواست مسترد ہو گئی۔"
+        },
+        "oil_change": {
+          "title": "آئل چینج درخواست مسترد ہو گئی",
+          "message": "آپ کی آئل چینج درخواست مسترد ہو گئی۔"
+        }
+      },
+      "task_assigned": {
+        "title": "نیا کام تفویض ہوا",
+        "message": "آپ کو نیا کام تفویض کیا گیا ہے۔"
+      },
+      "task_updated": {
+        "title": "کام اپ ڈیٹ ہوا",
+        "message": "آپ کے ایک کام کو اپ ڈیٹ کیا گیا ہے۔"
+      }
+    },
+    "driverFallback": "ایک ڈرائیور"
+  },
+  "Warnings": {
+    "title": "انتباہات",
+    "description": "آپ کے ادارے کی طرف سے جاری کردہ انتظامی انتباہات۔",
+    "empty": "فی الحال آپ کے لیے کوئی انتباہ موجود نہیں",
+    "back": "انتباہات پر واپس جائیں",
+    "seen": "دیکھ لیا گیا",
+    "notSeen": "ابھی نہیں دیکھا گیا",
+    "notAvailable": "دستیاب نہیں",
+    "realtime": {
+      "updated": "انتباہات اپ ڈیٹ ہو گئے"
+    },
+    "categories": {
+      "attendance": "حاضری",
+      "behavior": "رویہ",
+      "compliance": "تعمیل",
+      "documentation": "دستاویزات",
+      "performance": "کارکردگی",
+      "safety": "حفاظت",
+      "vehicle_care": "گاڑی کی دیکھ بھال",
+      "other": "دیگر"
+    },
+    "severities": {
+      "low": "کم",
+      "medium": "درمیانہ",
+      "high": "زیادہ"
+    },
+    "statuses": {
+      "active": "فعال",
+      "revoked": "منسوخ"
+    },
+    "fields": {
+      "status": "حالت",
+      "issuedAt": "جاری ہونے کا وقت",
+      "incidentAt": "واقعے کا وقت",
+      "seenAt": "دیکھنے کا وقت",
+      "revokedAt": "منسوخی کا وقت",
+      "revokeReason": "منسوخی کی وجہ",
+      "description": "تفصیل"
+    }
   },
   "Account": {
     "organization": "ادارہ",
@@ -287,10 +414,19 @@
   },
   "Shifts": {
     "title": "شفٹیں",
-    "emptyTitle": "کوئی شفٹ نہیں",
-    "empty": "پہلی شفٹ شروع کرنے کے بعد شفٹیں یہاں نظر آئیں گی",
+    "emptyTitle": "آپ کے ساتھ کوئی شفٹ منسلک نہیں ہے",
+    "empty": "انتظامیہ کی طرف سے تفویض ہونے پر شفٹ کی تفصیلات یہاں ظاہر ہوں گی۔",
     "startTime": "شروع",
     "endTime": "اختتام",
+    "overnight": "اگلے دن تک جاری",
+    "sameDay": "اسی دن",
+    "break": "وقفہ",
+    "noBreak": "کوئی وقفہ نہیں",
+    "totalDuration": "کل مدت",
+    "breakDuration": "وقفے کی مدت",
+    "effectiveDuration": "اصل کام کے گھنٹے",
+    "shiftInstructions": "شفٹ کی ہدایات",
+    "updated": "شفٹ اسائنمنٹ اپ ڈیٹ ہو گئی",
     "startReading": "ابتدائی ریڈنگ",
     "endReading": "آخری ریڈنگ",
     "distance": "فاصلہ",
@@ -323,5 +459,8 @@
     "en": "English",
     "ur": "اردو",
     "bn": "বাংলা"
+  },
+  "Loading": {
+    "data": "ڈیٹا لوڈ ہو رہا ہے..."
   }
 }

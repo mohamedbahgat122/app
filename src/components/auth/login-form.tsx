@@ -17,7 +17,7 @@ export function LoginForm({ locale }: LoginFormProps) {
   const t = useTranslations("Login");
   const isRtl = getDirection(locale) === "rtl";
   const textAlignClass = isRtl ? "text-right" : "text-left";
-  const [driverId, setDriverId] = useState("");
+  const [residencyNumber, setResidencyNumber] = useState("");
   const [state, formAction, isPending] = useActionState<
     LoginActionState,
     FormData
@@ -44,21 +44,21 @@ export function LoginForm({ locale }: LoginFormProps) {
         <input type="hidden" name="locale" value={locale} />
         <div className="space-y-2">
           <label
-            htmlFor="driver-id"
+            htmlFor="residency-number"
             className={`block text-sm font-semibold text-navy ${textAlignClass}`}
           >
-            {t("driverIdLabel")}
+            {t("residencyNumberLabel")}
           </label>
           <input
-            id="driver-id"
-            name="driverId"
+            id="residency-number"
+            name="residencyNumber"
             type="text"
-            inputMode="text"
+            inputMode="numeric"
             autoComplete="username"
             dir="ltr"
-            placeholder={t("driverIdPlaceholder")}
-            value={driverId}
-            onChange={(event) => setDriverId(event.target.value)}
+            placeholder={t("residencyNumberPlaceholder")}
+            value={residencyNumber}
+            onChange={(event) => setResidencyNumber(event.target.value)}
             disabled={isPending}
             aria-describedby={hasError ? errorId : undefined}
             className={`min-h-14 w-full rounded-[0.85rem] border border-border bg-primary-soft/70 px-4 text-base text-navy outline-none transition placeholder:text-muted/70 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10 ${textAlignClass}`}

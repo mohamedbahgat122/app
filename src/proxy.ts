@@ -15,6 +15,7 @@ const protectedSegments = new Set([
   "shifts",
   "tasks",
   "vehicle",
+  "warnings",
 ]);
 
 export default async function proxy(request: NextRequest) {

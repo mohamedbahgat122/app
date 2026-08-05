@@ -17,8 +17,10 @@
     "eyebrow": "সাইন ইন",
     "welcomeTitle": "আবার স্বাগতম",
     "description": "সিস্টেমে প্রবেশ করতে আপনার অ্যাকাউন্টের তথ্য দিন",
-    "driverIdLabel": "Driver ID",
-    "driverIdPlaceholder": "আপনার Driver ID লিখুন",
+    "driverIdLabel": "ড্রাইভার আইডি",
+    "driverIdPlaceholder": "আপনার ড্রাইভার আইডি লিখুন",
+    "residencyNumberLabel": "ইকামা নম্বর",
+    "residencyNumberPlaceholder": "আপনার ইকামা নম্বর লিখুন",
     "passwordLabel": "পাসওয়ার্ড",
     "passwordPlaceholder": "আপনার পাসওয়ার্ড লিখুন",
     "showPassword": "পাসওয়ার্ড দেখান",
@@ -26,9 +28,10 @@
     "submit": "সাইন ইন",
     "submitting": "সাইন ইন হচ্ছে...",
     "validation": {
-      "driverIdRequired": "Driver ID প্রয়োজন",
+      "driverIdRequired": "ড্রাইভার আইডি প্রয়োজন",
+      "residencyNumberRequired": "ইকামা নম্বর প্রয়োজন",
       "passwordRequired": "পাসওয়ার্ড প্রয়োজন",
-      "invalidCredentials": "Driver ID অথবা পাসওয়ার্ড সঠিক নয়",
+      "invalidCredentials": "ইকামা নম্বর অথবা পাসওয়ার্ড সঠিক নয়।",
       "unauthorized": "এই অ্যাকাউন্টটি ড্রাইভার অ্যাপের জন্য অনুমোদিত নয়",
       "networkError": "সেবার সঙ্গে সংযোগ করা যায়নি. আবার চেষ্টা করুন.",
       "applicationError": "সংযুক্ত ড্রাইভারের তথ্য লোড করা যায়নি. পরে আবার চেষ্টা করুন."
@@ -40,7 +43,7 @@
     "description": "আপনার অ্যাকাউন্ট ড্রাইভার প্রোফাইলের সঙ্গে যুক্ত.",
     "mustChangePassword": "অ্যাপ ব্যবহার করার আগে অস্থায়ী পাসওয়ার্ড পরিবর্তন করতে হবে.",
     "driverName": "ড্রাইভারের নাম",
-    "driverId": "Driver ID",
+    "driverId": "ড্রাইভার আইডি",
     "organization": "প্রতিষ্ঠান",
     "vehiclePlate": "সংযুক্ত গাড়ির প্লেট",
     "status": "অ্যাকাউন্টের অবস্থা",
@@ -65,12 +68,12 @@
     "recentShift": "সাম্প্রতিক শিফট",
     "verification": "যাচাই",
     "verified": "যাচাই হয়েছে",
-    "reviewStatus": "Start review",
-    "endReviewStatus": "End review",
+    "reviewStatus": "শুরুর পর্যালোচনা",
+    "endReviewStatus": "শেষের পর্যালোচনা",
     "reviewStatuses": {
-      "pending_review": "Pending review",
-      "approved": "Approved",
-      "rejected": "Rejected"
+      "pending_review": "পর্যালোচনার অপেক্ষায়",
+      "approved": "অনুমোদিত",
+      "rejected": "প্রত্যাখ্যাত"
     }
   },
   "Shell": {
@@ -103,7 +106,7 @@
       "endBelowStart": "শেষ রিডিং শুরুর রিডিংয়ের কম হতে পারে না",
       "sessionExpired": "আপনার সেশন শেষ হয়েছে. আবার সাইন ইন করুন.",
       "uploadFailed": "ওডোমিটার ছবি আপলোড করা যায়নি. আবার চেষ্টা করুন.",
-      "saveFailed": "Could not save duty data. Please try again.",
+      "saveFailed": "শিফটের ডেটা সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
       "openExists": "ইতিমধ্যে একটি খোলা শিফট আছে",
       "noOpenShift": "শেষ করার জন্য কোনো খোলা শিফট নেই",
       "noVehicle": "এই অ্যাকাউন্টের সঙ্গে কোনো গাড়ি যুক্ত নেই",
@@ -124,21 +127,21 @@
       "organizationInactive": "ড্রাইভারের প্রতিষ্ঠান বর্তমানে নিষ্ক্রিয়."
     },
     "steps": {
-      "matching": "Checking reading...",
-      "uploading": "Uploading photo...",
-      "reading": "Checking reading...",
-      "saving": "Saving duty data..."
+      "matching": "রিডিং যাচাই হচ্ছে...",
+      "uploading": "ছবি আপলোড হচ্ছে...",
+      "reading": "রিডিং যাচাই হচ্ছে...",
+      "saving": "শিফটের ডেটা সংরক্ষণ হচ্ছে..."
     },
     "manualReading": "লেখা রিডিং: {value}",
     "ocrReading": "ছবি থেকে পড়া রিডিং: {value}",
-    "submittedReading": "Reading: {value}",
-    "submittedAt": "Capture time: {value}",
+    "submittedReading": "রিডিং: {value}",
+    "submittedAt": "ছবি তোলার সময়: {value}",
     "success": {
-      "start": "Start of duty was recorded and sent for review.",
-      "end": "End of duty was recorded and sent for review."
+      "start": "শিফটের শুরু রেকর্ড করে পর্যালোচনার জন্য পাঠানো হয়েছে।",
+      "end": "শিফটের শেষ রেকর্ড করে পর্যালোচনার জন্য পাঠানো হয়েছে।"
     },
     "reviewStatus": {
-      "pending_review": "Review status: Pending review"
+      "pending_review": "পর্যালোচনার অবস্থা: পর্যালোচনার অপেক্ষায়"
     }
   },
   "Camera": {
@@ -179,11 +182,17 @@
       "vehicle_ambiguous": "সংযুক্ত গাড়ির একাধিক রেকর্ড পাওয়া গেছে. অনুগ্রহ করে ব্যবস্থাপনার সঙ্গে যোগাযোগ করুন.",
       "vehicle_inactive": "সংযুক্ত গাড়িটি বর্তমানে সক্রিয় নয়. অনুগ্রহ করে ব্যবস্থাপনার সঙ্গে যোগাযোগ করুন.",
       "vehicle_organization_mismatch": "গাড়ির তথ্য ড্রাইভারের প্রতিষ্ঠানের সঙ্গে মেলে না. অনুগ্রহ করে ব্যবস্থাপনার সঙ্গে যোগাযোগ করুন.",
-      "odometerBelowLatest": "রিডিং সর্বশেষ সম্পন্ন শিফটের ওডোমিটার থেকে কম."
+      "odometerBelowLatest": "রিডিং সর্বশেষ সম্পন্ন শিফটের ওডোমিটার থেকে কম.",
+      "meeting_manager_required": "আপনি যার সঙ্গে দেখা করতে চান তাকে নির্বাচন করুন।",
+      "meeting_manager_not_found": "নির্বাচিত ব্যবস্থাপনা অ্যাকাউন্ট পাওয়া যায়নি।",
+      "meeting_manager_inactive": "নির্বাচিত ব্যবস্থাপনা অ্যাকাউন্ট এখন সক্রিয় নয়।",
+      "meeting_manager_not_authorized": "নির্বাচিত ব্যবস্থাপনা অ্যাকাউন্ট মিটিং অনুরোধের জন্য উপলব্ধ নয়।",
+      "meeting_manager_organization_mismatch": "আপনি অন্য প্রতিষ্ঠানের ব্যবহারকারীকে মিটিং অনুরোধ পাঠাতে পারবেন না।"
     },
     "vehicle": "সংযুক্ত গাড়ি",
     "history": "অনুরোধের ইতিহাস",
     "submit": "অনুরোধ জমা দিন",
+    "sending": "অনুরোধ পাঠানো হচ্ছে...",
     "title": "আমার অনুরোধ",
     "types": {
       "leave": "ছুটি",
@@ -220,6 +229,8 @@
       "description": "সমস্যার বিবরণ",
       "category": "রক্ষণাবেক্ষণ বিভাগ",
       "preferredTime": "পছন্দের সময়",
+      "meetingWith": "কার সঙ্গে মিটিং",
+      "meetingWithPlaceholder": "আপনি যার সঙ্গে দেখা করতে চান তাকে নির্বাচন করুন",
       "endDate": "শেষের তারিখ",
       "startDate": "শুরুর তারিখ",
       "subject": "বিষয়",
@@ -227,7 +238,10 @@
       "leaveType": "ছুটির ধরন",
       "reason": "কারণ",
       "note": "নোট"
-    }
+    },
+    "emptyMeetingManagers": "মিটিংয়ের জন্য বর্তমানে কোনো ব্যবস্থাপনা ব্যবহারকারী উপলব্ধ নেই। ব্যবস্থাপনার সঙ্গে যোগাযোগ করুন।",
+    "meetingWith": "কার সঙ্গে মিটিং",
+    "managerNotSpecified": "নির্ধারিত নয়"
   },
   "Salary": {
     "title": "বেতন",
@@ -245,7 +259,80 @@
     "openRequest": "অনুরোধ খুলুন",
     "read": "পড়া হয়েছে",
     "unread": "নতুন",
-    "updated": "নোটিফিকেশন আপডেট হয়েছে"
+    "updated": "নোটিফিকেশন আপডেট হয়েছে",
+    "openWarning": "সতর্কতা খুলুন",
+    "notAvailable": "উপলব্ধ নয়",
+    "openTask": "কাজ খুলুন",
+    "open": "খুলুন",
+    "localized": {
+      "driver_warning_issued": {
+        "title": "নতুন ড্রাইভার সতর্কতা",
+        "message": "আপনার জন্য নতুন প্রশাসনিক সতর্কতা জারি করা হয়েছে। বিস্তারিত দেখতে এটি খুলুন।"
+      },
+      "driver_app_request_submitted": {
+        "leave": {
+          "title": "নতুন ছুটির অনুরোধ",
+          "message": "{driverName} ছুটির অনুরোধ জমা দিয়েছেন।"
+        },
+        "maintenance": {
+          "title": "নতুন রক্ষণাবেক্ষণ অনুরোধ",
+          "message": "{driverName} রক্ষণাবেক্ষণ অনুরোধ জমা দিয়েছেন।"
+        },
+        "meeting": {
+          "title": "নতুন সাক্ষাৎ অনুরোধ",
+          "message": "{driverName} সাক্ষাৎ অনুরোধ জমা দিয়েছেন।"
+        },
+        "oil_change": {
+          "title": "নতুন তেল পরিবর্তন অনুরোধ",
+          "message": "{driverName} তেল পরিবর্তনের অনুরোধ জমা দিয়েছেন।"
+        }
+      },
+      "driver_app_request_approved": {
+        "leave": {
+          "title": "ছুটির অনুরোধ অনুমোদিত",
+          "message": "আপনার ছুটির অনুরোধ অনুমোদিত হয়েছে।"
+        },
+        "maintenance": {
+          "title": "রক্ষণাবেক্ষণ অনুরোধ অনুমোদিত",
+          "message": "আপনার রক্ষণাবেক্ষণ অনুরোধ অনুমোদিত হয়েছে।"
+        },
+        "meeting": {
+          "title": "সাক্ষাৎ অনুরোধ অনুমোদিত",
+          "message": "আপনার সাক্ষাৎ অনুরোধ অনুমোদিত হয়েছে।"
+        },
+        "oil_change": {
+          "title": "তেল পরিবর্তন অনুরোধ অনুমোদিত",
+          "message": "আপনার তেল পরিবর্তন অনুরোধ অনুমোদিত হয়েছে।"
+        }
+      },
+      "driver_app_request_rejected": {
+        "leave": {
+          "title": "ছুটির অনুরোধ প্রত্যাখ্যাত",
+          "message": "আপনার ছুটির অনুরোধ প্রত্যাখ্যাত হয়েছে।"
+        },
+        "maintenance": {
+          "title": "রক্ষণাবেক্ষণ অনুরোধ প্রত্যাখ্যাত",
+          "message": "আপনার রক্ষণাবেক্ষণ অনুরোধ প্রত্যাখ্যাত হয়েছে।"
+        },
+        "meeting": {
+          "title": "সাক্ষাৎ অনুরোধ প্রত্যাখ্যাত",
+          "message": "আপনার সাক্ষাৎ অনুরোধ প্রত্যাখ্যাত হয়েছে।"
+        },
+        "oil_change": {
+          "title": "তেল পরিবর্তন অনুরোধ প্রত্যাখ্যাত",
+          "message": "আপনার তেল পরিবর্তন অনুরোধ প্রত্যাখ্যাত হয়েছে।"
+        }
+      },
+      "task_assigned": {
+        "title": "নতুন কাজ বরাদ্দ হয়েছে",
+        "message": "আপনার জন্য নতুন কাজ বরাদ্দ করা হয়েছে।"
+      },
+      "task_updated": {
+        "title": "কাজ আপডেট হয়েছে",
+        "message": "আপনার একটি কাজ আপডেট করা হয়েছে।"
+      }
+    },
+    "driverFallback": "একজন ড্রাইভার"
   },
   "Account": {
     "organization": "প্রতিষ্ঠান",
@@ -287,10 +374,19 @@
   },
   "Shifts": {
     "title": "শিফট",
-    "emptyTitle": "কোনো শিফট নেই",
-    "empty": "প্রথম শিফট শুরু করার পর শিফটগুলো এখানে দেখা যাবে",
+    "emptyTitle": "আপনার কোনো শিফট নির্ধারিত নেই",
+    "empty": "ব্যবস্থাপনা থেকে নির্ধারিত হলে শিফটের বিবরণ এখানে দেখা যাবে।",
     "startTime": "শুরু",
     "endTime": "শেষ",
+    "overnight": "পরের দিন পর্যন্ত চলে",
+    "sameDay": "একই দিন",
+    "break": "বিরতি",
+    "noBreak": "কোনো বিরতি নেই",
+    "totalDuration": "মোট সময়",
+    "breakDuration": "বিরতির সময়",
+    "effectiveDuration": "কার্যকর কাজের সময়",
+    "shiftInstructions": "শিফট নির্দেশনা",
+    "updated": "শিফট বরাদ্দ আপডেট হয়েছে",
     "startReading": "শুরুর রিডিং",
     "endReading": "শেষের রিডিং",
     "distance": "দূরত্ব",
@@ -323,5 +419,48 @@
     "en": "English",
     "ur": "اردو",
     "bn": "বাংলা"
+  },
+  "Warnings": {
+    "title": "সতর্কতা",
+    "description": "আপনার প্রতিষ্ঠানের জারি করা প্রশাসনিক সতর্কতা।",
+    "empty": "বর্তমানে আপনার জন্য কোনো সতর্কতা নেই",
+    "back": "সতর্কতায় ফিরে যান",
+    "seen": "দেখা হয়েছে",
+    "notSeen": "এখনও দেখা হয়নি",
+    "notAvailable": "উপলব্ধ নয়",
+    "realtime": {
+      "updated": "সতর্কতা আপডেট হয়েছে"
+    },
+    "categories": {
+      "attendance": "উপস্থিতি",
+      "behavior": "আচরণ",
+      "compliance": "অনুসরণ",
+      "documentation": "নথিপত্র",
+      "performance": "কর্মদক্ষতা",
+      "safety": "নিরাপত্তা",
+      "vehicle_care": "গাড়ির যত্ন",
+      "other": "অন্যান্য"
+    },
+    "severities": {
+      "low": "কম",
+      "medium": "মাঝারি",
+      "high": "উচ্চ"
+    },
+    "statuses": {
+      "active": "সক্রিয়",
+      "revoked": "বাতিল"
+    },
+    "fields": {
+      "status": "অবস্থা",
+      "issuedAt": "জারির সময়",
+      "incidentAt": "ঘটনার সময়",
+      "seenAt": "দেখার সময়",
+      "revokedAt": "বাতিলের সময়",
+      "revokeReason": "বাতিলের কারণ",
+      "description": "বিবরণ"
+    }
+  },
+  "Loading": {
+    "data": "ডেটা লোড হচ্ছে..."
   }
 }

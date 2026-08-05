@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function markDriverNotificationReadAction(formData: FormData) {
@@ -27,4 +28,23 @@ export async function markAllDriverNotificationsReadAction(formData: FormData) {
     .eq("is_read", false);
 
   revalidatePath(`/${locale}/notifications`);
+}
+
+export async function openDriverNotificationAction(formData: FormData) {
+  const locale = formData.get("locale")?.toString() ?? "ar";
+  const notificationId = formData.get("notificationId")?.toString();
+  const targetPath = formData.get("targetPath")?.toString();
+
+  if (!notificationId || !targetPath || !targetPath.startsWith(`/${locale}/`)) {
+    return;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  await supabase
+    .from("app_notifications")
+    .update({ is_read: true, read_at: new Date().toISOString() })
+    .eq("id", notificationId);
+
+  revalidatePath(`/${locale}/notifications`);
+  redirect(targetPath);
 }

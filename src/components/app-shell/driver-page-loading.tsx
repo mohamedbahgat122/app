@@ -1,12 +1,11 @@
 "use client";
 
-import { useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { PageCard } from "@/components/app-shell/page-card";
 
 export function DriverPageLoading() {
-  const locale = useLocale();
-  const message =
-    locale === "ar" ? "جاري تحميل البيانات..." : "Loading data...";
+  const t = useTranslations("Loading");
+  const message = t("data");
 
   return (
     <main

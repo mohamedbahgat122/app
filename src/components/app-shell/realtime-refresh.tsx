@@ -6,7 +6,11 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type RealtimeRefreshProps = {
   channelName: string;
-  table: "driver_app_requests" | "app_notifications";
+  table:
+    | "driver_app_requests"
+    | "app_notifications"
+    | "driver_warnings"
+    | "organization_shift_assignments";
   filter: string;
   toast: string;
 };

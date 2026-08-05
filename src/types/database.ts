@@ -138,6 +138,127 @@ export type Database = {
           },
         ]
       }
+      driver_login_identifiers: {
+        Row: {
+          created_at: string
+          driver_id: string
+          id: string
+          identifier_normalized: string
+          identifier_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          id?: string
+          identifier_normalized: string
+          identifier_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          id?: string
+          identifier_normalized?: string
+          identifier_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_login_identifiers_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: true
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_warnings: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          driver_id: string
+          driver_seen_at: string | null
+          id: string
+          incident_at: string
+          issued_at: string
+          issued_by_user_id: string
+          organization_id: string
+          revoke_reason: string | null
+          revoked_at: string | null
+          revoked_by_user_id: string | null
+          severity: string
+          status: string
+          title: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description: string
+          driver_id: string
+          driver_seen_at?: string | null
+          id?: string
+          incident_at: string
+          issued_at?: string
+          issued_by_user_id: string
+          organization_id: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by_user_id?: string | null
+          severity: string
+          status?: string
+          title: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          driver_id?: string
+          driver_seen_at?: string | null
+          id?: string
+          incident_at?: string
+          issued_at?: string
+          issued_by_user_id?: string
+          organization_id?: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by_user_id?: string | null
+          severity?: string
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_warnings_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_warnings_issued_by_user_id_fkey"
+            columns: ["issued_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_warnings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_warnings_revoked_by_user_id_fkey"
+            columns: ["revoked_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_app_leave_request_details: {
         Row: {
           end_date: string
@@ -205,6 +326,7 @@ export type Database = {
           preferred_time: string | null
           reason: string
           request_id: string
+          requested_manager_user_id: string | null
           scheduled_at: string | null
           subject: string
         }
@@ -213,6 +335,7 @@ export type Database = {
           preferred_time?: string | null
           reason: string
           request_id: string
+          requested_manager_user_id?: string | null
           scheduled_at?: string | null
           subject: string
         }
@@ -221,6 +344,7 @@ export type Database = {
           preferred_time?: string | null
           reason?: string
           request_id?: string
+          requested_manager_user_id?: string | null
           scheduled_at?: string | null
           subject?: string
         }
@@ -230,6 +354,13 @@ export type Database = {
             columns: ["request_id"]
             isOneToOne: true
             referencedRelation: "driver_app_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_app_meeting_request_details_requested_manager_user_id_fkey"
+            columns: ["requested_manager_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -267,6 +398,7 @@ export type Database = {
         Row: {
           completed_at: string | null
           completed_by: string | null
+          client_submission_id: string | null
           created_at: string
           driver_id: string
           id: string
@@ -285,6 +417,7 @@ export type Database = {
         Insert: {
           completed_at?: string | null
           completed_by?: string | null
+          client_submission_id?: string | null
           created_at?: string
           driver_id: string
           id?: string
@@ -303,6 +436,7 @@ export type Database = {
         Update: {
           completed_at?: string | null
           completed_by?: string | null
+          client_submission_id?: string | null
           created_at?: string
           driver_id?: string
           id?: string
@@ -1434,6 +1568,138 @@ export type Database = {
           },
         ]
       }
+      organization_shift_templates: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          break_end_time: string | null
+          break_start_time: string | null
+          created_at: string
+          created_by: string | null
+          crosses_midnight: boolean
+          end_time: string
+          has_break: boolean
+          id: string
+          is_active: boolean
+          name: string
+          driver_note: string | null
+          organization_id: string
+          start_time: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          break_end_time?: string | null
+          break_start_time?: string | null
+          created_at?: string
+          created_by?: string | null
+          crosses_midnight?: boolean
+          end_time: string
+          has_break?: boolean
+          id?: string
+          is_active?: boolean
+          name: string
+          driver_note?: string | null
+          organization_id: string
+          start_time: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          break_end_time?: string | null
+          break_start_time?: string | null
+          created_at?: string
+          created_by?: string | null
+          crosses_midnight?: boolean
+          end_time?: string
+          has_break?: boolean
+          id?: string
+          is_active?: boolean
+          name?: string
+          driver_note?: string | null
+          organization_id?: string
+          start_time?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_shift_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_shift_assignments: {
+        Row: {
+          assignment_end_date: string | null
+          assignment_start_date: string | null
+          created_at: string
+          created_by: string | null
+          driver_id: string
+          id: string
+          is_active: boolean
+          organization_id: string
+          shift_template_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          assignment_end_date?: string | null
+          assignment_start_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          driver_id: string
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          shift_template_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          assignment_end_date?: string | null
+          assignment_start_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          shift_template_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_shift_assignments_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_shift_assignments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_shift_assignments_shift_template_id_fkey"
+            columns: ["shift_template_id"]
+            isOneToOne: false
+            referencedRelation: "organization_shift_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           code: string
@@ -1702,6 +1968,18 @@ export type Database = {
         }
         Returns: string
       }
+      issue_driver_warning: {
+        Args: {
+          p_category: string
+          p_description: string
+          p_driver_id: string
+          p_incident_at: string
+          p_organization_id: string
+          p_severity: string
+          p_title: string
+        }
+        Returns: string
+      }
       insert_app_notification: {
         Args: {
           p_entity_id: string
@@ -1778,6 +2056,10 @@ export type Database = {
         Args: { p_request_type: string }
         Returns: string
       }
+      revoke_driver_warning: {
+        Args: { p_revoke_reason: string; p_warning_id: string }
+        Returns: undefined
+      }
       resolve_driver_current_vehicle: {
         Args: { p_driver_id: string }
         Returns: {
@@ -1849,6 +2131,10 @@ export type Database = {
       }
       safe_access_snapshot: { Args: { p_user_id: string }; Returns: Json }
       safe_driver_snapshot: { Args: { p_driver_id: string }; Returns: Json }
+      mark_driver_warning_seen: {
+        Args: { p_warning_id: string }
+        Returns: undefined
+      }
       set_driver_status: {
         Args: {
           p_actor_user_id: string
@@ -1884,6 +2170,7 @@ export type Database = {
           p_leave_type: string
           p_reason: string
           p_start_date: string
+          p_submission_id: string
         }
         Returns: Json
       }
@@ -1891,6 +2178,7 @@ export type Database = {
         Args: {
           p_maintenance_category: string
           p_problem_description: string
+          p_submission_id: string
           p_urgency: string
         }
         Returns: Json
@@ -1900,12 +2188,27 @@ export type Database = {
           p_preferred_date?: string
           p_preferred_time?: string
           p_reason: string
+          p_requested_manager_user_id: string
+          p_submission_id: string
           p_subject: string
         }
         Returns: Json
       }
+      is_meeting_manager_eligible: {
+        Args: { target_organization_id: string; target_user_id: string }
+        Returns: boolean
+      }
+      list_driver_meeting_manager_options: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          display_name: string
+          job_title: string | null
+          profile_id: string
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
       submit_driver_oil_change_request: {
-        Args: { p_current_odometer_reading: number; p_note?: string }
+        Args: { p_current_odometer_reading: number; p_note?: string; p_submission_id: string }
         Returns: Json
       }
       update_driver_record: {

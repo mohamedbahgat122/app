@@ -3,10 +3,10 @@
 import { redirect } from "next/navigation";
 import { isLocale, type Locale } from "@/config/locales";
 import {
-  buildDriverInternalEmail,
-  normalizeDriverLoginId,
+  normalizeIqamaLoginIdentifier,
 } from "@/lib/auth/driver-identity";
 import { getVerifiedDriverSession } from "@/lib/auth/driver-session";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 
@@ -56,29 +56,32 @@ export async function loginDriverAction(
   const localeValue = formData.get("locale")?.toString();
   const locale: Locale =
     localeValue && isLocale(localeValue) ? localeValue : "ar";
-  const driverId = normalizeDriverLoginId(formData.get("driverId")?.toString());
+  const rawResidencyNumber = formData.get("residencyNumber")?.toString() ?? "";
+  const residencyNumber = normalizeIqamaLoginIdentifier(rawResidencyNumber);
   const password = formData.get("password")?.toString() ?? "";
 
-  if (!driverId) {
+  if (!rawResidencyNumber.trim()) {
     return {
       resetKey: Date.now().toString(),
       status: "validation_error",
-      messageKey: "driverIdRequired",
+      messageKey: "residencyNumberRequired",
     };
+  }
+
+  if (!residencyNumber) {
+    return invalidLoginState();
   }
 
   if (!password) {
-    return {
-      resetKey: Date.now().toString(),
-      status: "validation_error",
-      messageKey: "passwordRequired",
-    };
+    return invalidLoginState();
   }
 
   let supabase;
+  let admin;
 
   try {
     supabase = await createSupabaseServerClient();
+    admin = createSupabaseAdminClient();
   } catch {
     return {
       resetKey: Date.now().toString(),
@@ -87,17 +90,48 @@ export async function loginDriverAction(
     };
   }
 
+  const { data: identifier, error: identifierError } = await admin
+    .from("driver_login_identifiers")
+    .select("driver_id")
+    .eq("identifier_type", "iqama")
+    .eq("identifier_normalized", residencyNumber)
+    .maybeSingle();
+
+  if (identifierError || !identifier) {
+    return invalidLoginState();
+  }
+
+  const { data: driver, error: driverError } = await admin
+    .from("drivers")
+    .select("id, auth_user_id, status, deleted_at")
+    .eq("id", identifier.driver_id)
+    .maybeSingle();
+
+  if (
+    driverError ||
+    !driver ||
+    driver.deleted_at ||
+    driver.status !== "active" ||
+    !driver.auth_user_id
+  ) {
+    return invalidLoginState();
+  }
+
+  const { data: authUser, error: authUserError } =
+    await admin.auth.admin.getUserById(driver.auth_user_id);
+  const authEmail = authUser.user?.email?.trim();
+
+  if (authUserError || !authEmail) {
+    return invalidLoginState();
+  }
+
   const { error } = await supabase.auth.signInWithPassword({
-    email: buildDriverInternalEmail(driverId),
+    email: authEmail,
     password,
   });
 
   if (error) {
-    return {
-      resetKey: Date.now().toString(),
-      status: "invalid_credentials",
-      messageKey: "invalidCredentials",
-    };
+    return invalidLoginState();
   }
 
   const sessionResult = await getVerifiedDriverSession(supabase);
@@ -110,11 +144,11 @@ export async function loginDriverAction(
       status:
         sessionResult.status === "application_error"
           ? "application_error"
-          : "unauthorized",
+          : "invalid_credentials",
       messageKey:
         sessionResult.status === "application_error"
           ? "applicationError"
-          : "unauthorized",
+          : "invalidCredentials",
     };
   }
 
@@ -123,6 +157,14 @@ export async function loginDriverAction(
       ? `/${locale}/change-password`
       : `/${locale}/home`,
   );
+}
+
+function invalidLoginState(): LoginActionState {
+  return {
+    resetKey: Date.now().toString(),
+    status: "invalid_credentials",
+    messageKey: "invalidCredentials",
+  };
 }
 
 export async function logoutDriverAction(formData: FormData) {
@@ -213,10 +255,15 @@ export async function submitLeaveRequestAction(
   _previousState: DriverRequestActionState,
   formData: FormData,
 ): Promise<DriverRequestActionState> {
+  const submissionId = formData.get("submissionId")?.toString() ?? "";
   const leaveType = formData.get("leaveType")?.toString() ?? "";
   const startDate = formData.get("startDate")?.toString() ?? "";
   const endDate = formData.get("endDate")?.toString() ?? "";
   const reason = formData.get("reason")?.toString().trim() ?? "";
+
+  if (!isUuid(submissionId)) {
+    return requestValidation("submitFailed");
+  }
 
   if (
     !["sick", "weekly", "annual"].includes(leaveType) ||
@@ -233,6 +280,7 @@ export async function submitLeaveRequestAction(
     p_start_date: startDate,
     p_end_date: endDate,
     p_reason: reason,
+    p_submission_id: submissionId,
   });
 }
 
@@ -240,9 +288,14 @@ export async function submitMaintenanceRequestAction(
   _previousState: DriverRequestActionState,
   formData: FormData,
 ): Promise<DriverRequestActionState> {
+  const submissionId = formData.get("submissionId")?.toString() ?? "";
   const category = formData.get("category")?.toString().trim() ?? "";
   const urgency = formData.get("urgency")?.toString() ?? "";
   const description = formData.get("description")?.toString().trim() ?? "";
+
+  if (!isUuid(submissionId)) {
+    return requestValidation("submitFailed");
+  }
 
   if (!category || !["normal", "urgent"].includes(urgency) || !description) {
     return requestValidation("invalidMaintenance");
@@ -252,6 +305,7 @@ export async function submitMaintenanceRequestAction(
     p_maintenance_category: category,
     p_urgency: urgency,
     p_problem_description: description,
+    p_submission_id: submissionId,
   });
 }
 
@@ -259,20 +313,33 @@ export async function submitMeetingRequestAction(
   _previousState: DriverRequestActionState,
   formData: FormData,
 ): Promise<DriverRequestActionState> {
+  const submissionId = formData.get("submissionId")?.toString() ?? "";
   const subject = formData.get("subject")?.toString().trim() ?? "";
   const reason = formData.get("reason")?.toString().trim() ?? "";
+  const requestedManagerUserId =
+    formData.get("requestedManagerUserId")?.toString() ?? "";
   const preferredDate = formData.get("preferredDate")?.toString() ?? "";
   const preferredTime = formData.get("preferredTime")?.toString() ?? "";
+
+  if (!isUuid(submissionId)) {
+    return requestValidation("submitFailed");
+  }
 
   if (!subject || !reason) {
     return requestValidation("invalidMeeting");
   }
 
+  if (!isUuid(requestedManagerUserId)) {
+    return requestValidation("meeting_manager_required");
+  }
+
   return submitRequestRpc("submit_driver_meeting_request", {
     p_subject: subject,
     p_reason: reason,
+    p_requested_manager_user_id: requestedManagerUserId,
     p_preferred_date: isDate(preferredDate) ? preferredDate : undefined,
     p_preferred_time: preferredTime || undefined,
+    p_submission_id: submissionId,
   });
 }
 
@@ -280,8 +347,13 @@ export async function submitOilChangeRequestAction(
   _previousState: DriverRequestActionState,
   formData: FormData,
 ): Promise<DriverRequestActionState> {
+  const submissionId = formData.get("submissionId")?.toString() ?? "";
   const readingText = formData.get("odometerReading")?.toString() ?? "";
   const note = formData.get("note")?.toString().trim() ?? "";
+
+  if (!isUuid(submissionId)) {
+    return requestValidation("submitFailed");
+  }
 
   if (!/^\d+$/.test(readingText)) {
     return requestValidation("invalidOdometer");
@@ -296,6 +368,7 @@ export async function submitOilChangeRequestAction(
   return submitRequestRpc("submit_driver_oil_change_request", {
     p_current_odometer_reading: reading,
     p_note: note || undefined,
+    p_submission_id: submissionId,
   });
 }
 
@@ -375,21 +448,26 @@ async function submitRequestRpc(
         p_start_date: string;
         p_end_date: string;
         p_reason: string;
+        p_submission_id: string;
       }
     | {
         p_maintenance_category: string;
         p_urgency: string;
         p_problem_description: string;
+        p_submission_id: string;
       }
     | {
         p_subject: string;
         p_reason: string;
+        p_requested_manager_user_id: string;
         p_preferred_date?: string | null;
         p_preferred_time?: string | null;
+        p_submission_id: string;
       }
     | {
         p_current_odometer_reading: number;
         p_note?: string | null;
+        p_submission_id: string;
       },
 ): Promise<DriverRequestActionState> {
   const supabase = await createSupabaseServerClient();
@@ -492,16 +570,30 @@ function isDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function mapRequestError(error: { code?: string; message: string }) {
   const match = error.message.match(/APP_REQUEST_[A-Z_]+/);
   const vehicleError = error.message.match(
     /vehicle_(?:not_linked|not_found|ambiguous|inactive|organization_mismatch)/,
+  );
+  const meetingManagerError = error.message.match(
+    /meeting_manager_(?:required|not_found|inactive|not_authorized|organization_mismatch)/,
   );
 
   if (vehicleError) {
     return {
       status: "request_validation_failed" as const,
       messageKey: vehicleError[0],
+    };
+  }
+
+  if (meetingManagerError) {
+    return {
+      status: "request_validation_failed" as const,
+      messageKey: meetingManagerError[0],
     };
   }
 

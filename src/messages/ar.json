@@ -13,12 +13,17 @@
     "subtitle": "توصيل أسرع... وتنفيذ أدق",
     "loading": "جاري التجهيز"
   },
+  "Loading": {
+    "data": "جاري تحميل البيانات..."
+  },
   "Login": {
     "eyebrow": "تسجيل الدخول",
     "welcomeTitle": "مرحباً بعودتك",
     "description": "أدخل بيانات حسابك للوصول إلى النظام",
     "driverIdLabel": "معرف المندوب",
     "driverIdPlaceholder": "أدخل معرف كيتا",
+    "residencyNumberLabel": "رقم الإقامة",
+    "residencyNumberPlaceholder": "أدخل رقم الإقامة",
     "passwordLabel": "كلمة المرور",
     "passwordPlaceholder": "أدخل كلمة المرور",
     "showPassword": "إظهار كلمة المرور",
@@ -27,8 +32,9 @@
     "submitting": "جاري تسجيل الدخول...",
     "validation": {
       "driverIdRequired": "معرف المندوب مطلوب",
+      "residencyNumberRequired": "رقم الإقامة مطلوب",
       "passwordRequired": "كلمة المرور مطلوبة",
-      "invalidCredentials": "معرف المندوب أو كلمة المرور غير صحيحة",
+      "invalidCredentials": "رقم الإقامة أو كلمة المرور غير صحيحة.",
       "unauthorized": "هذا الحساب غير مصرح له باستخدام تطبيق المندوب",
       "networkError": "تعذر الاتصال بالخدمة. حاول مرة أخرى.",
       "applicationError": "تعذر تحميل بيانات المندوب المرتبطة. حاول مرة أخرى لاحقاً."
@@ -82,7 +88,7 @@
     "nav": {
       "odometer": "العداد",
       "requests": "طلباتي",
-      "shifts": "الدوامات",
+      "shifts": "الشيفتات",
       "vehicle": "السيارة",
       "salary": "راتبي"
     }
@@ -179,11 +185,17 @@
       "vehicle_ambiguous": "يوجد أكثر من سجل للمركبة المرتبطة. يرجى مراجعة الإدارة.",
       "vehicle_inactive": "المركبة المرتبطة غير مفعلة حالياً. يرجى مراجعة الإدارة.",
       "vehicle_organization_mismatch": "بيانات المركبة لا تتطابق مع مؤسسة المندوب. يرجى مراجعة الإدارة.",
+      "meeting_manager_required": "اختر الشخص المطلوب مقابلته.",
+      "meeting_manager_not_found": "حساب الإدارة المحدد غير موجود.",
+      "meeting_manager_inactive": "حساب الإدارة المحدد غير نشط حاليًا.",
+      "meeting_manager_not_authorized": "حساب الإدارة المحدد غير متاح لطلبات المقابلة.",
+      "meeting_manager_organization_mismatch": "لا يمكنك إرسال طلب مقابلة إلى مستخدم من جهة أخرى.",
       "odometerBelowLatest": "القراءة أقل من آخر قراءة عداد لدوام مكتمل."
     },
     "vehicle": "المركبة المرتبطة",
     "history": "سجل الطلبات",
     "submit": "إرسال الطلب",
+    "sending": "جاري إرسال الطلب...",
     "title": "طلباتي",
     "types": {
       "leave": "إجازة",
@@ -220,6 +232,8 @@
       "description": "وصف المشكلة",
       "category": "فئة الصيانة",
       "preferredTime": "الوقت المفضل",
+      "meetingWith": "المقابلة مع",
+      "meetingWithPlaceholder": "اختر الشخص المطلوب مقابلته",
       "endDate": "تاريخ النهاية",
       "startDate": "تاريخ البداية",
       "subject": "الموضوع",
@@ -227,7 +241,10 @@
       "leaveType": "نوع الإجازة",
       "reason": "السبب",
       "note": "ملاحظة"
-    }
+    },
+    "emptyMeetingManagers": "لا يوجد مسؤول متاح للمقابلة حاليًا. تواصل مع الإدارة.",
+    "meetingWith": "المقابلة مع",
+    "managerNotSpecified": "غير محدد"
   },
   "Salary": {
     "title": "راتبي",
@@ -243,9 +260,122 @@
     "markRead": "تعليم كمقروء",
     "markAllRead": "تعليم الكل كمقروء",
     "openRequest": "فتح الطلب",
+    "openWarning": "فتح الإنذار",
+    "openTask": "فتح المهمة",
+    "open": "فتح",
     "read": "مقروء",
     "unread": "غير مقروء",
-    "updated": "تم تحديث الإشعارات"
+    "updated": "تم تحديث الإشعارات",
+    "notAvailable": "غير متاح",
+    "driverFallback": "مندوب",
+    "localized": {
+      "driver_warning_issued": {
+        "title": "تم تسجيل إنذار جديد",
+        "message": "تم إصدار إنذار إداري جديد بحقك. اضغط للاطلاع على التفاصيل."
+      },
+      "driver_app_request_submitted": {
+        "leave": {
+          "title": "طلب إجازة جديد",
+          "message": "قدم {driverName} طلب إجازة."
+        },
+        "maintenance": {
+          "title": "طلب صيانة جديد",
+          "message": "قدم {driverName} طلب صيانة."
+        },
+        "meeting": {
+          "title": "طلب مقابلة جديد",
+          "message": "قدم {driverName} طلب مقابلة."
+        },
+        "oil_change": {
+          "title": "طلب تغيير زيت جديد",
+          "message": "قدم {driverName} طلب تغيير زيت."
+        }
+      },
+      "driver_app_request_approved": {
+        "leave": {
+          "title": "تمت الموافقة على طلب الإجازة",
+          "message": "تمت الموافقة على طلب الإجازة الخاص بك."
+        },
+        "maintenance": {
+          "title": "تمت الموافقة على طلب الصيانة",
+          "message": "تمت الموافقة على طلب الصيانة الخاص بك."
+        },
+        "meeting": {
+          "title": "تمت الموافقة على طلب المقابلة",
+          "message": "تمت الموافقة على طلب المقابلة الخاص بك."
+        },
+        "oil_change": {
+          "title": "تمت الموافقة على طلب تغيير الزيت",
+          "message": "تمت الموافقة على طلب تغيير الزيت الخاص بك."
+        }
+      },
+      "driver_app_request_rejected": {
+        "leave": {
+          "title": "تم رفض طلب الإجازة",
+          "message": "تم رفض طلب الإجازة الخاص بك."
+        },
+        "maintenance": {
+          "title": "تم رفض طلب الصيانة",
+          "message": "تم رفض طلب الصيانة الخاص بك."
+        },
+        "meeting": {
+          "title": "تم رفض طلب المقابلة",
+          "message": "تم رفض طلب المقابلة الخاص بك."
+        },
+        "oil_change": {
+          "title": "تم رفض طلب تغيير الزيت",
+          "message": "تم رفض طلب تغيير الزيت الخاص بك."
+        }
+      },
+      "task_assigned": {
+        "title": "تم تعيين مهمة جديدة",
+        "message": "تم تعيين مهمة جديدة لك."
+      },
+      "task_updated": {
+        "title": "تم تحديث المهمة",
+        "message": "تم تحديث إحدى مهامك."
+      }
+    }
+  },
+  "Warnings": {
+    "title": "الإنذارات",
+    "description": "إنذارات إدارية صادرة من مؤسستك.",
+    "empty": "لا توجد إنذارات مخصصة لك حاليا",
+    "back": "العودة للإنذارات",
+    "seen": "تمت المشاهدة",
+    "notSeen": "لم تتم المشاهدة بعد",
+    "notAvailable": "غير متاح",
+    "realtime": {
+      "updated": "تم تحديث الإنذارات"
+    },
+    "categories": {
+      "attendance": "الحضور",
+      "behavior": "السلوك",
+      "compliance": "الالتزام",
+      "documentation": "المستندات",
+      "performance": "الأداء",
+      "safety": "السلامة",
+      "vehicle_care": "العناية بالمركبة",
+      "other": "أخرى"
+    },
+    "severities": {
+      "low": "منخفضة",
+      "medium": "متوسطة",
+      "high": "عالية"
+    },
+    "statuses": {
+      "active": "نشط",
+      "revoked": "ملغى"
+    },
+    "fields": {
+      "status": "الحالة",
+      "issuedAt": "وقت الإصدار",
+      "incidentAt": "وقت الواقعة",
+      "seenAt": "وقت المشاهدة",
+      "revokedAt": "وقت الإلغاء",
+      "revokeReason": "سبب الإلغاء",
+      "description": "تفاصيل الإنذار"
+    }
   },
   "Account": {
     "organization": "المؤسسة",
@@ -286,11 +416,20 @@
     }
   },
   "Shifts": {
-    "title": "الدوامات",
-    "emptyTitle": "لا توجد دوامات",
-    "empty": "ستظهر الدوامات بعد بدء أول دوام",
+    "title": "الشيفتات",
+    "emptyTitle": "ليس لديك شيفت مرتبط",
+    "empty": "ستظهر تفاصيل الشيفت هنا عند تعيينه من الإدارة.",
     "startTime": "البداية",
     "endTime": "النهاية",
+    "overnight": "يمتد لليوم التالي",
+    "sameDay": "نفس اليوم",
+    "break": "البريك",
+    "noBreak": "لا توجد استراحة",
+    "totalDuration": "المدة الكلية",
+    "breakDuration": "مدة الاستراحة",
+    "effectiveDuration": "ساعات العمل الفعلية",
+    "shiftInstructions": "تعليمات الشيفت",
+    "updated": "تم تحديث ربط الشيفت",
     "startReading": "قراءة البداية",
     "endReading": "قراءة النهاية",
     "distance": "المسافة",

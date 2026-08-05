@@ -84,6 +84,16 @@ export default async function RequestsPage({ params }: RouteProps) {
                     }).format(new Date(request.scheduledAt))}
                   </p>
                 ) : null}
+                {request.requestType === "meeting" ? (
+                  <p className="mt-2 text-sm font-semibold text-navy">
+                    {t("meetingWith")}:{" "}
+                    {request.requestedManagerName
+                      ? request.requestedManagerJobTitle
+                        ? `${request.requestedManagerName} - ${request.requestedManagerJobTitle}`
+                        : request.requestedManagerName
+                      : t("managerNotSpecified")}
+                  </p>
+                ) : null}
                 {request.reviewNote ? (
                   <p className="mt-2 text-sm font-semibold text-navy">
                     {t("reviewNote")}: {request.reviewNote}

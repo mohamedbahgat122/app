@@ -1,7 +1,11 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { EmptyState, PageCard } from "@/components/app-shell/page-card";
+import { RealtimeRefresh } from "@/components/app-shell/realtime-refresh";
+import { EmptyState } from "@/components/app-shell/page-card";
 import { isLocale } from "@/config/locales";
-import { loadDriverAppContext, loadShiftSummary } from "@/lib/app/driver-app-data";
+import {
+  loadAssignedShiftSummary,
+  loadDriverAppContext,
+} from "@/lib/app/driver-app-data";
 
 type RouteProps = { params: Promise<{ locale: string }> };
 
@@ -12,63 +16,108 @@ export default async function ShiftsPage({ params }: RouteProps) {
   const app = await loadDriverAppContext(locale);
   if (app.status === "application_error") return null;
   const t = await getTranslations({ locale, namespace: "Shifts" });
-  const { recentShifts } = await loadShiftSummary(
+  const assignedShift = await loadAssignedShiftSummary(
     app.context.session.driver.id,
     app.supabase,
   );
 
-  return (
+  if (!assignedShift) {
+    return (
       <div className="space-y-4">
+        <RealtimeRefresh
+          channelName={`driver-shift-assignment-${app.context.session.driver.id}`}
+          table="organization_shift_assignments"
+          filter={`driver_id=eq.${app.context.session.driver.id}`}
+          toast={t("updated")}
+        />
         <h1 className="text-[1.45rem] font-bold text-navy">{t("title")}</h1>
-        {recentShifts.length === 0 ? (
-          <EmptyState title={t("emptyTitle")} description={t("empty")} />
-        ) : (
-          recentShifts.map((shift) => (
-            <PageCard key={shift.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-bold text-navy">
-                    {formatDate(locale, shift.started_at)}
-                  </p>
-                  <p className="mt-1 text-xs font-semibold text-muted" dir="ltr">
-                    {shift.vehicle_plate_snapshot}
-                  </p>
-                </div>
-                <span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary">
-                  {t(`status.${shift.status}`)}
-                </span>
-              </div>
-              <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                <Info label={t("startTime")} value={formatTime(locale, shift.started_at)} />
-                <Info label={t("endTime")} value={shift.ended_at ? formatTime(locale, shift.ended_at) : "-"} />
-                <Info label={t("startReading")} value={formatNumber(shift.start_odometer_reading)} />
-                <Info label={t("endReading")} value={formatNumber(shift.end_odometer_reading)} />
-                <Info label={t("distance")} value={formatNumber(shift.end_odometer_reading === null ? null : shift.end_odometer_reading - shift.start_odometer_reading)} />
-              </dl>
-            </PageCard>
-          ))
-        )}
+        <EmptyState title={t("emptyTitle")} description={t("empty")} />
       </div>
-  );
-}
+    );
+  }
 
-function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <dt className="text-xs font-bold text-muted">{label}</dt>
-      <dd className="mt-1 font-bold text-navy" dir="ltr">{value}</dd>
+    <div className="space-y-4">
+      <RealtimeRefresh
+        channelName={`driver-shift-assignment-${app.context.session.driver.id}`}
+        table="organization_shift_assignments"
+        filter={`driver_id=eq.${app.context.session.driver.id}`}
+        toast={t("updated")}
+      />
+      <h1 className="text-[1.45rem] font-bold text-navy">{t("title")}</h1>
+      <article className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-navy">
+              {assignedShift.name}
+            </h2>
+            <p className="mt-1 text-sm font-bold text-slate-500">
+              {assignedShift.startTime} -&gt; {assignedShift.endTime}
+            </p>
+          </div>
+          <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+            {assignedShift.crossesMidnight ? t("overnight") : t("sameDay")}
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <ShiftMetric
+            label={t("totalDuration")}
+            value={formatMinutes(assignedShift.totalMinutes, locale)}
+          />
+          <ShiftMetric
+            label={t("breakDuration")}
+            value={formatMinutes(assignedShift.breakMinutes, locale)}
+          />
+          <ShiftMetric
+            label={t("effectiveDuration")}
+            value={formatMinutes(assignedShift.effectiveMinutes, locale)}
+          />
+        </div>
+
+        <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-600">
+          {assignedShift.hasBreak &&
+          assignedShift.breakStartTime &&
+          assignedShift.breakEndTime
+            ? `${t("break")}: ${assignedShift.breakStartTime} -> ${assignedShift.breakEndTime}`
+            : t("noBreak")}
+        </div>
+      </article>
+
+      {assignedShift.driverNote ? (
+        <article className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+          <h2 className="text-base font-bold text-amber-900">
+            {t("shiftInstructions")}
+          </h2>
+          <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-7 text-amber-950">
+            {assignedShift.driverNote}
+          </p>
+        </article>
+      ) : null}
     </div>
   );
 }
 
-function formatDate(locale: string, value: string) {
-  return new Intl.DateTimeFormat(locale, { timeZone: "Asia/Riyadh", day: "numeric", month: "long", year: "numeric" }).format(new Date(value));
+function ShiftMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-4">
+      <p className="text-xs font-bold text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-bold text-navy">{value}</p>
+    </div>
+  );
 }
 
-function formatTime(locale: string, value: string) {
-  return new Intl.DateTimeFormat(locale, { timeZone: "Asia/Riyadh", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
-}
+function formatMinutes(minutes: number, locale: string) {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
 
-function formatNumber(value: number | null) {
-  return value === null ? "-" : value.toLocaleString("en-US");
+  if (locale === "en") {
+    return remainingMinutes === 0
+      ? `${hours}h`
+      : `${hours}h ${remainingMinutes}m`;
+  }
+
+  return remainingMinutes === 0
+    ? `${hours} ساعة`
+    : `${hours} ساعة ${remainingMinutes} دقيقة`;
 }

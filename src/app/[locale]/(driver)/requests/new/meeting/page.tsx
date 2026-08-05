@@ -2,6 +2,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { RequestForm } from "@/components/requests/request-form";
 import { isLocale } from "@/config/locales";
 import { loadDriverAppContext } from "@/lib/app/driver-app-data";
+import { loadMeetingManagerOptions } from "@/lib/app/meeting-managers";
 
 type RouteProps = { params: Promise<{ locale: string }> };
 
@@ -12,11 +13,16 @@ export default async function NewMeetingRequestPage({ params }: RouteProps) {
   const app = await loadDriverAppContext(locale);
   if (app.status === "application_error") return null;
   const t = await getTranslations({ locale, namespace: "Requests" });
+  const meetingManagers = await loadMeetingManagerOptions(app.supabase);
 
   return (
       <main className="space-y-4">
         <h1 className="text-xl font-bold text-navy">{t("choices.meeting")}</h1>
-        <RequestForm type="meeting" vehiclePlate={app.context.session.driver.vehiclePlate} />
+        <RequestForm
+          type="meeting"
+          vehiclePlate={app.context.session.driver.vehiclePlate}
+          meetingManagers={meetingManagers}
+        />
       </main>
   );
 }

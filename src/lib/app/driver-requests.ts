@@ -13,6 +13,8 @@ export type DriverRequestHistoryItem = {
   summary: string;
   reviewNote: string | null;
   scheduledAt: string | null;
+  requestedManagerName: string | null;
+  requestedManagerJobTitle: string | null;
 };
 
 export async function loadDriverRequestHistory({
@@ -48,6 +50,8 @@ export async function loadDriverRequestHistory({
       summary: `${request.requested_amount_sar} SAR - ${request.reason}`,
       reviewNote: request.review_note,
       scheduledAt: null,
+      requestedManagerName: null,
+      requestedManagerJobTitle: null,
     });
   }
 
@@ -62,7 +66,7 @@ export async function loadDriverRequestHistory({
     meetingRequestIds.length
       ? supabase
           .from("driver_app_meeting_request_details")
-          .select("request_id, subject, scheduled_at")
+          .select("request_id, subject, scheduled_at, requested_manager_user_id")
           .in("request_id", meetingRequestIds)
       : { data: [] },
     oilChangeRequestIds.length
@@ -74,6 +78,22 @@ export async function loadDriverRequestHistory({
   ]);
   const meetingById = new Map(
     (meetingDetails.data ?? []).map((detail) => [detail.request_id, detail]),
+  );
+  const managerIds = Array.from(
+    new Set(
+      (meetingDetails.data ?? [])
+        .map((detail) => detail.requested_manager_user_id)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+  const managerProfiles = managerIds.length
+    ? await supabase
+        .from("profiles")
+        .select("id, full_name, job_title")
+        .in("id", managerIds)
+    : { data: [] };
+  const managerById = new Map(
+    (managerProfiles.data ?? []).map((profile) => [profile.id, profile]),
   );
   const oilById = new Map(
     (oilDetails.data ?? []).map((detail) => [detail.request_id, detail]),
@@ -98,6 +118,12 @@ export async function loadDriverRequestHistory({
         "",
       reviewNote: request.review_note,
       scheduledAt: meeting?.scheduled_at ?? oil?.scheduled_at ?? null,
+      requestedManagerName: meeting?.requested_manager_user_id
+        ? managerById.get(meeting.requested_manager_user_id)?.full_name ?? null
+        : null,
+      requestedManagerJobTitle: meeting?.requested_manager_user_id
+        ? managerById.get(meeting.requested_manager_user_id)?.job_title ?? null
+        : null,
     });
   }
 

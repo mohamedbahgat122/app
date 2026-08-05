@@ -8,6 +8,7 @@ const DRIVER_PREFETCH_ROUTES = [
   "/requests",
   "/shifts",
   "/vehicle",
+  "/warnings",
   "/salary",
   "/notifications",
   "/tasks",
