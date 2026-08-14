@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Cairo, Geist_Mono, Noto_Nastaliq_Urdu, Noto_Sans_Bengali } from "next/font/google";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { notFound } from "next/navigation";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+import { RouteSplashFallback } from "@/components/splash/route-splash-fallback";
+import { StartupSplash } from "@/components/splash/startup-splash";
 import { getDirection, type Locale } from "@/config/locales";
 import { routing } from "@/i18n/routing";
 import "../globals.css";
@@ -58,7 +60,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#f5f8fc",
+  themeColor: "#10233f",
 };
 
 type LocaleLayoutProps = {
@@ -93,8 +95,13 @@ export default async function LocaleLayout({
         "--font-app": `var(${fontByLocale[typedLocale]})`,
       } as React.CSSProperties}
     >
-      <body className="min-h-full">
-        <NextIntlClientProvider>{children}</NextIntlClientProvider>
+      <body className="min-h-full bg-navy">
+        <NextIntlClientProvider>
+          <StartupSplash locale={typedLocale} />
+          <Suspense fallback={<RouteSplashFallback locale={typedLocale} />}>
+            {children}
+          </Suspense>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

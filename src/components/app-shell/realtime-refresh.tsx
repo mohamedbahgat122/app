@@ -46,9 +46,7 @@ export function RealtimeRefresh({
       },
     );
 
-    channel.subscribe((status) => {
-      if (status === "SUBSCRIBED") router.refresh();
-    });
+    channel.subscribe();
 
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);

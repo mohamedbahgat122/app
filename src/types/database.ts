@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -259,6 +259,7 @@ export type Database = {
           },
         ]
       }
+
       driver_app_leave_request_details: {
         Row: {
           end_date: string
@@ -936,6 +937,7 @@ export type Database = {
           vehicle_authorization_expiry_date: string
           vehicle_authorization_number: string
           vehicle_brand: string | null
+          vehicle_id: string | null
           vehicle_number: string
           vehicle_owner_identifier: string | null
           vehicle_serial_number: string | null
@@ -976,6 +978,7 @@ export type Database = {
           vehicle_authorization_expiry_date: string
           vehicle_authorization_number: string
           vehicle_brand?: string | null
+          vehicle_id?: string | null
           vehicle_number: string
           vehicle_owner_identifier?: string | null
           vehicle_serial_number?: string | null
@@ -1016,6 +1019,7 @@ export type Database = {
           vehicle_authorization_expiry_date?: string
           vehicle_authorization_number?: string
           vehicle_brand?: string | null
+          vehicle_id?: string | null
           vehicle_number?: string
           vehicle_owner_identifier?: string | null
           vehicle_serial_number?: string | null
@@ -1114,6 +1118,7 @@ export type Database = {
         Row: {
           archived_at: string | null
           archived_by: string | null
+          assigned_organization_id: string | null
           assigned_driver_id: string | null
           assigned_driver_manual_iqama: string | null
           assigned_driver_manual_name: string | null
@@ -1154,6 +1159,7 @@ export type Database = {
         Insert: {
           archived_at?: string | null
           archived_by?: string | null
+          assigned_organization_id?: string | null
           assigned_driver_id?: string | null
           assigned_driver_manual_iqama?: string | null
           assigned_driver_manual_name?: string | null
@@ -1194,6 +1200,7 @@ export type Database = {
         Update: {
           archived_at?: string | null
           archived_by?: string | null
+          assigned_organization_id?: string | null
           assigned_driver_id?: string | null
           assigned_driver_manual_iqama?: string | null
           assigned_driver_manual_name?: string | null
@@ -1295,6 +1302,90 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      driver_shift_change_requests: {
+        Row: {
+          created_at: string
+          current_shift_id: string
+          driver_id: string
+          driver_note: string | null
+          id: string
+          organization_id: string
+          requested_shift_id: string
+          requested_week_start_date: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_shift_id: string
+          driver_id: string
+          driver_note?: string | null
+          id?: string
+          organization_id: string
+          requested_shift_id: string
+          requested_week_start_date: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_shift_id?: string
+          driver_id?: string
+          driver_note?: string | null
+          id?: string
+          organization_id?: string
+          requested_shift_id?: string
+          requested_week_start_date?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_shift_change_requests_current_shift_id_fkey"
+            columns: ["current_shift_id"]
+            isOneToOne: false
+            referencedRelation: "organization_shift_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_shift_change_requests_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_shift_change_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_shift_change_requests_requested_shift_id_fkey"
+            columns: ["requested_shift_id"]
+            isOneToOne: false
+            referencedRelation: "organization_shift_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_shift_change_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
         ]
       }
       fuel_increase_requests: {
@@ -1819,6 +1910,14 @@ export type Database = {
       can_view_organization: {
         Args: { target_organization_id: string }
         Returns: boolean
+      }
+      approve_shift_change_request: {
+        Args: {
+          p_request_id: string
+          p_user_id: string
+          p_review_note?: string
+        }
+        Returns: Json
       }
       complete_driver_password_change: { Args: never; Returns: Json }
       create_driver_record: {

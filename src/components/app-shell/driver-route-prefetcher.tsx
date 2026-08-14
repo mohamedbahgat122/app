@@ -5,6 +5,7 @@ import { useRouter } from "@/i18n/navigation";
 
 const DRIVER_PREFETCH_ROUTES = [
   "/home",
+  "/odometer",
   "/requests",
   "/shifts",
   "/vehicle",

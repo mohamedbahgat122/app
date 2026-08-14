@@ -22,8 +22,13 @@ type DriverRow = Pick<
   | "organization_id"
   | "full_name"
   | "profile_photo_path"
+  | "iqama_number"
+  | "iqama_expiry_date"
+  | "driver_card_number"
+  | "driver_card_expiry_date"
   | "keeta_driver_id"
   | "keeta_vehicle_plate_number"
+  | "vehicle_id"
   | "vehicle_number"
   | "status"
   | "deleted_at"
@@ -35,12 +40,14 @@ type OrganizationRow = Pick<
 export type RepresentativeVehicle = Pick<
   Database["public"]["Tables"]["fleet_vehicles"]["Row"],
   | "id"
+  | "assigned_organization_id"
   | "organization_id"
   | "vehicle_category"
   | "vehicle_type"
   | "plate_number"
   | "assigned_driver_id"
   | "authorized_driver_id"
+  | "operating_card_number"
   | "operating_card_expiry_date"
   | "authorization_expiry_date"
   | "operational_status"
@@ -86,6 +93,7 @@ export async function resolveRepresentativeContext(
     enforcePasswordChange?: boolean;
     requireVehicle?: boolean;
     organizationSupabase?: ServerSupabaseClient;
+    vehicleSupabase?: ServerSupabaseClient;
     onStage?: (stage: string) => void;
     onWarning?: (
       code: "organization_profile_mismatch",
@@ -116,13 +124,27 @@ export async function resolveRepresentativeContext(
   const emit = options?.onStage;
 
   emit?.("profile_lookup_started");
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select(
-      "id, full_name, role, status, deleted_at, home_organization_id, must_change_password",
-    )
-    .eq("id", authUserId)
-    .maybeSingle();
+  emit?.("driver_lookup_started");
+
+  const [
+    { data: profile, error: profileError },
+    { data: drivers, error: driverError }
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(
+        "id, full_name, role, status, deleted_at, home_organization_id, must_change_password",
+      )
+      .eq("id", authUserId)
+      .maybeSingle(),
+    supabase
+      .from("drivers")
+      .select(
+        "id, auth_user_id, organization_id, full_name, profile_photo_path, iqama_number, iqama_expiry_date, driver_card_number, driver_card_expiry_date, keeta_driver_id, keeta_vehicle_plate_number, vehicle_id, vehicle_number, status, deleted_at",
+      )
+      .eq("auth_user_id", authUserId)
+      .limit(2)
+  ]);
 
   if (profileError || !profile || profile.id !== authUserId) {
     return deniedContext("profile_lookup", "driver_profile_missing");
@@ -155,15 +177,6 @@ export async function resolveRepresentativeContext(
     return deniedContext("driver_profile_status_validation", "driver_archived");
   }
   emit?.("authorization_validated");
-
-  emit?.("driver_lookup_started");
-  const { data: drivers, error: driverError } = await supabase
-    .from("drivers")
-    .select(
-      "id, auth_user_id, organization_id, full_name, profile_photo_path, keeta_driver_id, keeta_vehicle_plate_number, vehicle_number, status, deleted_at",
-    )
-    .eq("auth_user_id", authUserId)
-    .limit(2);
 
   if (driverError) {
     logSupabaseQueryError("driver_lookup", driverError);
@@ -214,7 +227,10 @@ export async function resolveRepresentativeContext(
   emit?.("driver_active_validated");
 
   emit?.("organization_resolution_started");
+  emit?.("vehicle_resolution_started");
+
   const organizationSupabase = options?.organizationSupabase ?? supabase;
+  const vehicleSupabase = options?.vehicleSupabase ?? supabase;
   const organizationLookup = {
     driverOrganizationField: "organization_id",
     identifierType: normalizeOrganizationIdentifierType(driver.organization_id),
@@ -222,11 +238,35 @@ export async function resolveRepresentativeContext(
     table: "organizations",
     column: "id",
   } as const;
-  const { data: organizations, error: organizationError } = await organizationSupabase
-    .from("organizations")
-    .select("id, name, code, is_active")
-    .eq("id", driver.organization_id)
-    .limit(2);
+
+  const vehicleSelect =
+    "id, assigned_organization_id, organization_id, vehicle_category, vehicle_type, plate_number, assigned_driver_id, authorized_driver_id, operating_card_number, operating_card_expiry_date, authorization_expiry_date, operational_status, technical_status, archived_at";
+  const vehicleQuery = driver.vehicle_id
+    ? vehicleSupabase
+        .from("fleet_vehicles")
+        .select(vehicleSelect)
+        .eq("id", driver.vehicle_id)
+        .is("archived_at", null)
+        .limit(2)
+    : vehicleSupabase
+        .from("fleet_vehicles")
+        .select(vehicleSelect)
+        .eq("organization_id", driver.organization_id)
+        .is("archived_at", null)
+        .or(`assigned_driver_id.eq.${driver.id},authorized_driver_id.eq.${driver.id}`)
+        .limit(10);
+
+  const [
+    { data: organizations, error: organizationError },
+    { data: vehicles, error: vehicleError }
+  ] = await Promise.all([
+    organizationSupabase
+      .from("organizations")
+      .select("id, name, code, is_active")
+      .eq("id", driver.organization_id)
+      .limit(2),
+    vehicleQuery
+  ]);
 
   if (organizationError) {
     logOrganizationLookupDiagnostic({
@@ -245,10 +285,7 @@ export async function resolveRepresentativeContext(
     return deniedContext("organization_resolution", "organization_lookup_failed");
   }
 
-  logOrganizationLookupDiagnostic({
-    ...organizationLookup,
-    rowCount: organizations?.length ?? 0,
-  });
+
 
   const organization = organizations?.[0] ?? null;
 
@@ -299,40 +336,39 @@ export async function resolveRepresentativeContext(
     );
   }
 
-  emit?.("vehicle_resolution_started");
-  const { data: vehicles, error: vehicleError } = await supabase
-    .from("fleet_vehicles")
-    .select(
-      "id, organization_id, vehicle_category, vehicle_type, plate_number, assigned_driver_id, authorized_driver_id, operating_card_expiry_date, authorization_expiry_date, operational_status, technical_status, archived_at",
-    )
-    .eq("organization_id", driver.organization_id)
-    .is("archived_at", null)
-    .or(`assigned_driver_id.eq.${driver.id},authorized_driver_id.eq.${driver.id}`)
-    .limit(10);
-
   if (vehicleError) {
     return deniedContext("vehicle_resolution", "vehicle_not_assigned");
   }
 
-  const vehicle =
-    vehicles
-      ?.sort((a, b) =>
-        a.assigned_driver_id === driver.id && b.assigned_driver_id !== driver.id
-          ? -1
-          : a.assigned_driver_id !== driver.id && b.assigned_driver_id === driver.id
-            ? 1
-            : 0,
-      )[0] ?? null;
+  const vehicle = driver.vehicle_id
+    ? vehicles?.[0] ?? null
+    : vehicles
+        ?.sort((a, b) =>
+          a.assigned_driver_id === driver.id && b.assigned_driver_id !== driver.id
+            ? -1
+            : a.assigned_driver_id !== driver.id && b.assigned_driver_id === driver.id
+              ? 1
+              : 0,
+        )[0] ?? null;
 
-  if (vehicle && vehicle.organization_id !== driver.organization_id) {
+  if (driver.vehicle_id && !vehicle) {
+    return deniedContext("vehicle_resolution", "vehicle_not_assigned");
+  }
+
+  const vehicleOrganizationId = vehicle
+    ? vehicle.assigned_organization_id ?? vehicle.organization_id
+    : null;
+
+  if (vehicle && vehicleOrganizationId !== driver.organization_id) {
     return deniedContext(
       "vehicle_resolution",
       "vehicle_organization_mismatch",
     );
   }
 
-  const plate =
-    vehicle?.plate_number ?? driver.keeta_vehicle_plate_number ?? driver.vehicle_number;
+  const plate = driver.vehicle_id
+    ? vehicle?.plate_number ?? null
+    : vehicle?.plate_number ?? driver.keeta_vehicle_plate_number ?? driver.vehicle_number;
   if (options?.requireVehicle && !plate) {
     return deniedContext("vehicle_resolution", "vehicle_not_assigned");
   }

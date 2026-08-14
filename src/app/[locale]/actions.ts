@@ -680,3 +680,94 @@ function logDriverRequestDiagnostic({
 function safeSuffix(value: string | null | undefined) {
   return value ? value.slice(-8) : "";
 }
+
+export async function submitShiftChangeRequestAction(
+  _previousState: DriverRequestActionState,
+  formData: FormData,
+): Promise<DriverRequestActionState> {
+  const currentShiftId = formData.get("currentShiftId")?.toString() ?? "";
+  const requestedShiftId = formData.get("requestedShiftId")?.toString() ?? "";
+  const requestedWeekStartDate = formData.get("requestedWeekStartDate")?.toString() ?? "";
+  const driverNote = formData.get("driverNote")?.toString().trim() ?? "";
+
+  if (!currentShiftId || !requestedShiftId || !requestedWeekStartDate) {
+    return {
+      status: "validation_error",
+      messageKey: "allFieldsRequired",
+    };
+  }
+
+  if (currentShiftId === requestedShiftId) {
+    return {
+      status: "validation_error",
+      messageKey: "sameShiftError",
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const sessionResult = await getVerifiedDriverSession(supabase);
+
+  if (sessionResult.status !== "verified" || sessionResult.session.mustChangePassword) {
+    return {
+      status: "auth_error",
+      messageKey: "unauthorized",
+    };
+  }
+
+  const driver = sessionResult.session.driver;
+  const organizationId = sessionResult.session.organization?.id;
+
+  if (!organizationId) {
+    return {
+      status: "submit_failed",
+      messageKey: "noOrganization",
+    };
+  }
+
+  // Verify pending requests
+  const { data: pendingRequests, error: pendingError } = await supabase
+    .from("driver_shift_change_requests")
+    .select("id")
+    .eq("driver_id", driver.id)
+    .eq("requested_week_start_date", requestedWeekStartDate)
+    .eq("status", "pending");
+
+  if (pendingError) {
+    return {
+      status: "submit_failed",
+      messageKey: "networkError",
+    };
+  }
+
+  if (pendingRequests && pendingRequests.length > 0) {
+    return {
+      status: "validation_error",
+      messageKey: "alreadyHasPending",
+    };
+  }
+
+  // Insert request
+  const { error: insertError } = await supabase
+    .from("driver_shift_change_requests")
+    .insert({
+      driver_id: driver.id,
+      organization_id: organizationId,
+      current_shift_id: currentShiftId,
+      requested_shift_id: requestedShiftId,
+      requested_week_start_date: requestedWeekStartDate,
+      driver_note: driverNote || null,
+      status: "pending",
+    });
+
+  if (insertError) {
+    console.error("submitShiftChangeRequestAction insert error:", insertError);
+    return {
+      status: "submit_failed",
+      messageKey: "insertFailed",
+    };
+  }
+
+  return {
+    status: "success",
+  };
+}

@@ -53,10 +53,19 @@
     "notAvailable": "উপলব্ধ নয়",
     "logout": "সাইন আউট",
     "odometerTitle": "ওডোমিটার",
+    "shiftHistoryTitle": "ওডোমিটারের ইতিহাস",
+    "startPhoto": "শুরুর ছবি",
+    "endPhoto": "শেষের ছবি",
+    "noPhoto": "কোনো ছবি আপলোড করা হয়নি",
+    "notEndedYet": "এখনো শেষ হয়নি",
+    "prevPage": "পূর্ববর্তী",
+    "nextPage": "পরবর্তী",
     "shiftStates": {
       "notStarted": "আজ আপনার শিফট শুরু হয়নি",
       "open": "শিফট চলছে",
-      "completedToday": "আজ আপনার শিফট শেষ হয়েছে"
+      "completedToday": "আজ আপনার শিফট শেষ হয়েছে",
+      "completed": "সম্পন্ন",
+      "cancelled": "বাতিল"
     },
     "startTime": "শুরুর সময়",
     "endTime": "শেষের সময়",
@@ -83,7 +92,8 @@
     "notifications": "নোটিফিকেশন",
     "account": "অ্যাকাউন্ট",
     "nav": {
-      "odometer": "ওডোমিটার",
+      "home": "Home",
+      "odometer": "মিটার",
       "requests": "আমার অনুরোধ",
       "shifts": "শিফট",
       "vehicle": "গাড়ি",
@@ -244,8 +254,33 @@
     "managerNotSpecified": "নির্ধারিত নয়"
   },
   "Salary": {
-    "title": "বেতন",
-    "empty": "বর্তমানে কোনো বেতনের তথ্য উপলব্ধ নেই"
+    "title": "আমার বেতন",
+    "empty": "বর্তমানে কোনো প্রকাশিত বেতনের বিবৃতি উপলব্ধ নেই",
+    "period": "সময়কাল",
+    "latest": "সর্বশেষ",
+    "published": "প্রকাশিত",
+    "netAmount": "নিট পরিমাণ",
+    "currency": "রিয়াল",
+    "dueToDriver": "আপনার পাওনা",
+    "dueFromDriver": "আপনার বকেয়া",
+    "noDues": "কোনো বকেয়া নেই",
+    "viewDetails": "বিস্তারিত দেখুন",
+    "details": "বিবৃতির বিশদ বিবরণ",
+    "baseSalary": "মূল বেতন",
+    "bonus": "বোনাস",
+    "deductions": "কাটা",
+    "transactions": "লেনদেনের বিবরণ",
+    "reason": "কারণ",
+    "notes": "নোট",
+    "orderCount": "অর্ডারের সংখ্যা",
+    "txTypes": {
+      "salary": "মূল বেতন",
+      "bonus": "বোনাস",
+      "admin_deduction": "প্রশাসনিক কর্তন",
+      "keeta_deduction": "কিটা অর্ডারের কর্তন",
+      "violation": "লঙ্ঘন",
+      "absence": "অনুপস্থিতি"
+    }
   },
   "Tasks": {
     "title": "টাস্ক",
@@ -338,9 +373,27 @@
     "organization": "প্রতিষ্ঠান",
     "vehiclePlate": "গাড়ির প্লেট",
     "language": "ভাষা",
+    "driverDetails": "ড্রাইভারের তথ্য",
+    "vehicleDetails": "গাড়ির তথ্য",
+    "iqamaNumber": "ইকামা নম্বর",
+    "iqamaExpiryDate": "ইকামার মেয়াদ",
+    "driverCardNumber": "ড্রাইভার কার্ড নম্বর",
+    "driverCardExpiryDate": "ড্রাইভার কার্ডের মেয়াদ",
+    "keetaVehiclePlate": "Keeta গাড়ির প্লেট",
+    "actualVehiclePlate": "প্রকৃত গাড়ির প্লেট",
+    "actualPlate": "প্রকৃত প্লেট নম্বর",
+    "vehicleType": "গাড়ির ধরন",
+    "operatingCardNumber": "অপারেটিং কার্ড নম্বর",
+    "operatingCardExpiry": "অপারেটিং কার্ডের মেয়াদ",
+    "authorizationExpiry": "অনুমোদনের মেয়াদ",
+    "operationalStatus": "অপারেশনাল অবস্থা",
     "changePassword": "পাসওয়ার্ড পরিবর্তন করুন",
     "logout": "সাইন আউট",
     "notAvailable": "উপলব্ধ নয়",
+    "operational": {
+      "active": "সক্রিয়",
+      "suspended": "স্থগিত"
+    },
     "languages": {
       "ar": "العربية",
       "en": "English",
@@ -394,6 +447,21 @@
       "open": "খোলা",
       "completed": "সম্পন্ন",
       "cancelled": "বাতিল"
+    },
+    "requestTitle": "পরবর্তী সপ্তাহের জন্য শিফট পরিবর্তনের অনুরোধ করুন",
+    "requestDesc": "আপনি পরবর্তী সপ্তাহের জন্য একটি শিফট পরিবর্তনের অনুরোধ করতে পারেন। পরিবর্তনটি আগামী রবিবার থেকে কার্যকর হবে।",
+    "newShiftLabel": "পরবর্তী সপ্তাহের জন্য পছন্দসই শিফট",
+    "selectShift": "একটি শিফট নির্বাচন করুন...",
+    "noteLabel": "পরিবর্তনের কারণ বা নোট (ঐচ্ছিক)",
+    "notePlaceholder": "পরিবর্তনের কারণ এখানে লিখুন...",
+    "submitBtn": "পরিবর্তনের অনুরোধ পাঠান",
+    "sending": "পাঠানো হচ্ছে...",
+    "successMessage": "শিফট পরিবর্তনের অনুরোধ সফলভাবে পাঠানো হয়েছে।",
+    "pendingRequestTitle": "একটি অমীমাংসিত অনুরোধ ইতিমধ্যে বিদ্যমান",
+    "pendingRequestDesc": "{date} থেকে শুরু হওয়া সপ্তাহের জন্য \"{shift}\" শিফটে পরিবর্তনের একটি অনুরোধ বর্তমানে পর্যালোচনাধীন রয়েছে।",
+    "errors": {
+      "validationError": "প্রয়োজনীয় তথ্য চেক করুন।",
+      "submitFailed": "অনুরোধ জমা দিতে ব্যর্থ হয়েছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন।"
     }
   },
   "ChangePassword": {

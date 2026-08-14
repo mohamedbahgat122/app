@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RepresentativeVehicle } from "@/lib/app/representative-context";
 import { resolveRepresentativeContext } from "@/lib/app/representative-context";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/types/database";
 
 type ServerSupabaseClient = SupabaseClient<Database>;
@@ -13,6 +14,12 @@ export type VerifiedDriverSession = {
     id: string;
     driverId: string;
     fullName: string;
+    iqamaNumber: string | null;
+    iqamaExpiryDate: string | null;
+    driverCardNumber: string | null;
+    driverCardExpiryDate: string | null;
+    keetaVehiclePlateNumber: string | null;
+    actualVehiclePlateNumber: string | null;
     profilePhotoPath: string | null;
     status: "active" | "suspended";
     vehiclePlate: string | null;
@@ -41,6 +48,7 @@ export async function getVerifiedDriverSession(
   }
 
   const context = await resolveRepresentativeContext(supabase, user.id, {
+    vehicleSupabase: createSupabaseAdminClient(),
     onWarning: (code, details) => {
       logDriverSessionDiagnostic("organization", null, {
         code,
@@ -88,6 +96,12 @@ export async function getVerifiedDriverSession(
         id: context.driver.id,
         driverId: context.driver.keeta_driver_id ?? "",
         fullName: context.driver.full_name,
+        iqamaNumber: context.driver.iqama_number,
+        iqamaExpiryDate: context.driver.iqama_expiry_date,
+        driverCardNumber: context.driver.driver_card_number,
+        driverCardExpiryDate: context.driver.driver_card_expiry_date,
+        keetaVehiclePlateNumber: context.driver.keeta_vehicle_plate_number,
+        actualVehiclePlateNumber: context.driver.vehicle_number,
         profilePhotoPath: context.driver.profile_photo_path,
         status: context.driver.status,
         vehiclePlate: context.plate,

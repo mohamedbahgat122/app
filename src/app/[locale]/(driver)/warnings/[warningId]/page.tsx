@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { isLocale, type Locale } from "@/config/locales";
 import { Link } from "@/i18n/navigation";
-import { loadDriverAppContext } from "@/lib/app/driver-app-data";
+import { loadDriverSession } from "@/lib/app/driver-app-data";
 import {
   loadDriverWarning,
   markDriverWarningSeen,
@@ -21,7 +21,7 @@ export default async function WarningDetailPage({ params }: RouteProps) {
   const { locale, warningId } = await params;
   if (!isLocale(locale)) return null;
   setRequestLocale(locale);
-  const app = await loadDriverAppContext(locale);
+  const app = await loadDriverSession(locale);
   if (app.status === "application_error") return null;
   const t = await getTranslations({ locale, namespace: "Warnings" });
   const warning = await loadDriverWarning({

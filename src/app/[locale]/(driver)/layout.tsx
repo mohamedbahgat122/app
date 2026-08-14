@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { AppError } from "@/components/app-shell/app-error";
 import { DriverAppShell } from "@/components/app-shell/driver-app-shell";
 import { isLocale } from "@/config/locales";
-import { loadDriverAppContext } from "@/lib/app/driver-app-data";
+import { loadDriverSession } from "@/lib/app/driver-app-data";
 
 type DriverLayoutProps = {
   children: ReactNode;
@@ -21,11 +21,11 @@ export default async function DriverLayout({
     return null;
   }
 
-  const app = await loadDriverAppContext(locale);
+  const app = await loadDriverSession(locale);
 
   if (app.status === "application_error") {
     return <AppError locale={locale} />;
   }
 
-  return <DriverAppShell context={app.context}>{children}</DriverAppShell>;
+  return <DriverAppShell session={app.session}>{children}</DriverAppShell>;
 }

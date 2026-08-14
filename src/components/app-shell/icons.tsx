@@ -11,6 +11,15 @@ export function BellIcon({ className = "size-5" }: IconProps) {
   );
 }
 
+export function HomeIcon({ className = "size-5" }: IconProps) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="none">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <polyline points="9 22 9 12 15 12 15 22" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
 export function CarIcon({ className = "size-5" }: IconProps) {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="none">

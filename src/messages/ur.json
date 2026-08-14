@@ -53,10 +53,19 @@
     "notAvailable": "دستیاب نہیں",
     "logout": "لاگ آؤٹ",
     "odometerTitle": "اوڈومیٹر",
+    "shiftHistoryTitle": "اوڈومیٹر کی تاریخ",
+    "startPhoto": "آغاز کی تصویر",
+    "endPhoto": "اختتام کی تصویر",
+    "noPhoto": "کوئی تصویر اپ لوڈ نہیں کی گئی",
+    "notEndedYet": "ابھی ختم نہیں ہوا",
+    "prevPage": "پچھلا",
+    "nextPage": "اگلا",
     "shiftStates": {
       "notStarted": "آج آپ کی شفٹ شروع نہیں ہوئی",
       "open": "شفٹ جاری ہے",
-      "completedToday": "آج آپ کی شفٹ مکمل ہو گئی"
+      "completedToday": "آج آپ کی شفٹ مکمل ہو گئی",
+      "completed": "مکمل",
+      "cancelled": "منسوخ"
     },
     "startTime": "شروع ہونے کا وقت",
     "endTime": "ختم ہونے کا وقت",
@@ -83,7 +92,8 @@
     "notifications": "اطلاعات",
     "account": "اکاؤنٹ",
     "nav": {
-      "odometer": "اوڈومیٹر",
+      "home": "Home",
+      "odometer": "میٹر",
       "requests": "درخواستیں",
       "shifts": "شفٹیں",
       "vehicle": "گاڑی",
@@ -244,8 +254,33 @@
     "managerNotSpecified": "متعین نہیں"
   },
   "Salary": {
-    "title": "تنخواہ",
-    "empty": "فی الحال تنخواہ کی کوئی معلومات دستیاب نہیں"
+    "title": "میری تنخواہ",
+    "empty": "اس وقت تنخواہ کا کوئی شائع شدہ گوشوارہ دستیاب نہیں ہے",
+    "period": "مدت",
+    "latest": "تازہ ترین",
+    "published": "شائع شدہ",
+    "netAmount": "خالص رقم",
+    "currency": "ریال",
+    "dueToDriver": "آپ کے واجب الادا",
+    "dueFromDriver": "آپ پر واجب الادا",
+    "noDues": "کوئی بقایا نہیں",
+    "viewDetails": "تفصیلات دیکھیں",
+    "details": "گوشوارے کی تفصیلات",
+    "baseSalary": "بنیادی تنخواہ",
+    "bonus": "بونس",
+    "deductions": "کٹوتی",
+    "transactions": "لین دین کی تفصیلات",
+    "reason": "وجہ",
+    "notes": "نوٹس",
+    "orderCount": "آرڈرز کی تعداد",
+    "txTypes": {
+      "salary": "بنیادی تنخواہ",
+      "bonus": "بونس",
+      "admin_deduction": "انتظامی کٹوتی",
+      "keeta_deduction": "کیٹا آرڈرز کٹوتی",
+      "violation": "خلاف ورزی",
+      "absence": "غیر حاضری"
+    }
   },
   "Tasks": {
     "title": "ٹاسکس",
@@ -378,9 +413,27 @@
     "organization": "ادارہ",
     "vehiclePlate": "گاڑی کی پلیٹ",
     "language": "زبان",
+    "driverDetails": "ڈرائیور کی معلومات",
+    "vehicleDetails": "گاڑی کی معلومات",
+    "iqamaNumber": "اقامہ نمبر",
+    "iqamaExpiryDate": "اقامہ کی میعاد",
+    "driverCardNumber": "ڈرائیور کارڈ نمبر",
+    "driverCardExpiryDate": "ڈرائیور کارڈ کی میعاد",
+    "keetaVehiclePlate": "Keeta گاڑی کی پلیٹ",
+    "actualVehiclePlate": "اصل گاڑی کی پلیٹ",
+    "actualPlate": "اصل پلیٹ نمبر",
+    "vehicleType": "گاڑی کی قسم",
+    "operatingCardNumber": "آپریٹنگ کارڈ نمبر",
+    "operatingCardExpiry": "آپریٹنگ کارڈ کی میعاد",
+    "authorizationExpiry": "اجازت نامے کی میعاد",
+    "operationalStatus": "آپریشنل حالت",
     "changePassword": "پاس ورڈ تبدیل کریں",
     "logout": "لاگ آؤٹ",
     "notAvailable": "دستیاب نہیں",
+    "operational": {
+      "active": "فعال",
+      "suspended": "معطل"
+    },
     "languages": {
       "ar": "العربية",
       "en": "English",
@@ -434,6 +487,21 @@
       "open": "کھلی",
       "completed": "مکمل",
       "cancelled": "منسوخ"
+    },
+    "requestTitle": "اگلے ہفتے کے لیے شفٹ تبدیلی کی درخواست",
+    "requestDesc": "آپ اگلے ہفتے کے لیے شفٹ تبدیلی کی درخواست دے سکتے ہیں۔ تبدیلی اگلے اتوار سے نافذ ہوگی۔",
+    "newShiftLabel": "اگلے ہفتے کے لیے مطلوبہ شفٹ",
+    "selectShift": "شفٹ منتخب کریں...",
+    "noteLabel": "نوٹس یا تبدیلی کی وجہ (اختیاری)",
+    "notePlaceholder": "تبدیلی کی درخواست کی وجہ یہاں لکھیں...",
+    "submitBtn": "تبدیلی کی درخواست بھیجیں",
+    "sending": "بھیجا جا رہا ہے...",
+    "successMessage": "شفٹ تبدیلی کی درخواست کامیابی سے بھیج دی گئی۔",
+    "pendingRequestTitle": "پہلے سے ایک زیر التوا درخواست موجود ہے",
+    "pendingRequestDesc": "\"{shift}\" شفٹ میں تبدیلی کی درخواست بتاریخ {date} سے شروع ہونے والے ہفتے کے لیے زیر جائزہ ہے۔",
+    "errors": {
+      "validationError": "براہ کرم مطلوبہ فیلڈز چیک کریں۔",
+      "submitFailed": "درخواست بھیجنے میں ناکامی۔ براہ کرم بعد میں دوبارہ کوشش کریں۔"
     }
   },
   "ChangePassword": {

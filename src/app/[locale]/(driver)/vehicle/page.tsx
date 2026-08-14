@@ -1,7 +1,7 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { EmptyState, PageCard } from "@/components/app-shell/page-card";
 import { isLocale } from "@/config/locales";
-import { loadDriverAppContext } from "@/lib/app/driver-app-data";
+import { loadDriverSession } from "@/lib/app/driver-app-data";
 
 type RouteProps = { params: Promise<{ locale: string }> };
 
@@ -9,10 +9,10 @@ export default async function VehiclePage({ params }: RouteProps) {
   const { locale } = await params;
   if (!isLocale(locale)) return null;
   setRequestLocale(locale);
-  const app = await loadDriverAppContext(locale);
+  const app = await loadDriverSession(locale);
   if (app.status === "application_error") return null;
   const t = await getTranslations({ locale, namespace: "Vehicle" });
-  const vehicle = app.context.vehicle;
+  const vehicle = app.session.vehicle;
 
   return (
     <>

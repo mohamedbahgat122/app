@@ -5,7 +5,7 @@ import {
   openDriverNotificationAction,
 } from "@/app/[locale]/notification-actions";
 import { isLocale, type Locale } from "@/config/locales";
-import { loadDriverAppContext } from "@/lib/app/driver-app-data";
+import { loadDriverSession } from "@/lib/app/driver-app-data";
 import { loadDriverNotifications } from "@/lib/app/driver-notifications";
 import { getLocalizedNotificationContent } from "@/lib/app/notification-localization";
 
@@ -15,7 +15,7 @@ export default async function NotificationsPage({ params }: RouteProps) {
   const { locale } = await params;
   if (!isLocale(locale)) return null;
   setRequestLocale(locale);
-  const app = await loadDriverAppContext(locale);
+  const app = await loadDriverSession(locale);
   if (app.status === "application_error") return null;
   const t = await getTranslations({ locale, namespace: "Notifications" });
   const notifications = await loadDriverNotifications({ supabase: app.supabase });

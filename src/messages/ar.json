@@ -56,10 +56,19 @@
     "notAvailable": "غير متوفر",
     "logout": "تسجيل الخروج",
     "odometerTitle": "العداد",
+    "shiftHistoryTitle": "سجل العداد",
+    "startPhoto": "صورة البداية",
+    "endPhoto": "صورة النهاية",
+    "noPhoto": "لم يتم رفع الصورة",
+    "notEndedYet": "لم ينتهِ بعد",
+    "prevPage": "السابق",
+    "nextPage": "التالي",
     "shiftStates": {
       "notStarted": "لم تبدأ دوامك اليوم",
       "open": "الدوام قيد التشغيل",
-      "completedToday": "تم إنهاء دوامك اليوم"
+      "completedToday": "تم إنهاء دوامك اليوم",
+      "completed": "مكتمل",
+      "cancelled": "ملغى"
     },
     "startTime": "وقت البداية",
     "endTime": "وقت النهاية",
@@ -86,6 +95,7 @@
     "notifications": "الإشعارات",
     "account": "الحساب",
     "nav": {
+      "home": "الرئيسية",
       "odometer": "العداد",
       "requests": "طلباتي",
       "shifts": "الشيفتات",
@@ -248,7 +258,32 @@
   },
   "Salary": {
     "title": "راتبي",
-    "empty": "لا توجد بيانات راتب متاحة حاليًا"
+    "empty": "لا توجد كشوفات رواتب منشورة حاليًا",
+    "period": "الفترة",
+    "latest": "أحدث كشف",
+    "published": "منشور",
+    "netAmount": "صافي المستحق",
+    "currency": "ر.س",
+    "dueToDriver": "مبلغ مستحق لك",
+    "dueFromDriver": "مبلغ مستحق عليك",
+    "noDues": "لا توجد مبالغ مستحقة",
+    "viewDetails": "عرض التفاصيل",
+    "details": "تفاصيل الكشف",
+    "baseSalary": "الراتب الأساسي",
+    "bonus": "المكافآت",
+    "deductions": "الخصومات",
+    "transactions": "تفاصيل الحركات",
+    "reason": "السبب",
+    "notes": "الملاحظات",
+    "orderCount": "عدد الطلبات",
+    "txTypes": {
+      "salary": "الراتب الأساسي",
+      "bonus": "مكافأة",
+      "admin_deduction": "خصم إداري",
+      "keeta_deduction": "خصم طلبات كيتا",
+      "violation": "مخالفة",
+      "absence": "غياب"
+    }
   },
   "Tasks": {
     "title": "المهام",
@@ -381,9 +416,27 @@
     "organization": "المؤسسة",
     "vehiclePlate": "لوحة السيارة",
     "language": "اللغة",
+    "driverDetails": "بيانات المندوب",
+    "vehicleDetails": "بيانات المركبة",
+    "iqamaNumber": "رقم الإقامة",
+    "iqamaExpiryDate": "تاريخ انتهاء الإقامة",
+    "driverCardNumber": "رقم كرت السائق",
+    "driverCardExpiryDate": "تاريخ انتهاء كرت السائق",
+    "keetaVehiclePlate": "رقم لوحة كيتا",
+    "actualVehiclePlate": "لوحة المركبة الفعلية",
+    "actualPlate": "رقم اللوحة الفعلية",
+    "vehicleType": "نوع المركبة",
+    "operatingCardNumber": "رقم كرت التشغيل",
+    "operatingCardExpiry": "تاريخ انتهاء كرت التشغيل",
+    "authorizationExpiry": "تاريخ انتهاء التفويض",
+    "operationalStatus": "حالة التشغيل",
     "changePassword": "تغيير كلمة المرور",
     "logout": "تسجيل الخروج",
     "notAvailable": "غير متوفر",
+    "operational": {
+      "active": "نشطة",
+      "suspended": "موقوفة"
+    },
     "languages": {
       "ar": "العربية",
       "en": "English",
@@ -437,6 +490,21 @@
       "open": "مفتوح",
       "completed": "مكتمل",
       "cancelled": "ملغي"
+    },
+    "requestTitle": "طلب تغيير شيفت الأسبوع القادم",
+    "requestDesc": "يمكنك طلب تغيير شيفت العمل للأسبوع القادم. سيبدأ تطبيق التغيير من يوم الأحد القادم.",
+    "newShiftLabel": "الشيفت المطلوب للأسبوع القادم",
+    "selectShift": "اختر الشيفت...",
+    "noteLabel": "ملاحظات أو سبب التغيير (اختياري)",
+    "notePlaceholder": "اكتب سبب طلب التغيير هنا...",
+    "submitBtn": "إرسال طلب التغيير",
+    "sending": "جاري الإرسال...",
+    "successMessage": "تم إرسال طلب تغيير الشيفت بنجاح.",
+    "pendingRequestTitle": "يوجد طلب معلق بالفعل",
+    "pendingRequestDesc": "طلب تغيير إلى شيفت \"{shift}\" للأسبوع الذي يبدأ في {date} قيد المراجعة حالياً.",
+    "errors": {
+      "validationError": "يرجى التحقق من البيانات المطلوبة.",
+      "submitFailed": "فشل إرسال الطلب، يرجى المحاولة لاحقاً."
     }
   },
   "ChangePassword": {

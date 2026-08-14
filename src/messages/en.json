@@ -56,10 +56,19 @@
     "notAvailable": "Not available",
     "logout": "Sign out",
     "odometerTitle": "Odometer",
+    "shiftHistoryTitle": "Odometer History",
+    "startPhoto": "Start Photo",
+    "endPhoto": "End Photo",
+    "noPhoto": "No photo uploaded",
+    "notEndedYet": "Not ended yet",
+    "prevPage": "Previous",
+    "nextPage": "Next",
     "shiftStates": {
       "notStarted": "Your shift has not started today",
       "open": "Shift is running",
-      "completedToday": "Your shift is completed today"
+      "completedToday": "Your shift is completed today",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
     },
     "startTime": "Start time",
     "endTime": "End time",
@@ -86,6 +95,7 @@
     "notifications": "Notifications",
     "account": "Account",
     "nav": {
+      "home": "Home",
       "odometer": "Odometer",
       "requests": "My Requests",
       "shifts": "Shifts",
@@ -247,8 +257,33 @@
     "managerNotSpecified": "Not specified"
   },
   "Salary": {
-    "title": "Salary",
-    "empty": "No salary data is currently available"
+    "title": "My Salary",
+    "empty": "No published salary statements available currently",
+    "period": "Period",
+    "latest": "Latest",
+    "published": "Published",
+    "netAmount": "Net Amount",
+    "currency": "SAR",
+    "dueToDriver": "Due to you",
+    "dueFromDriver": "Due from you",
+    "noDues": "No dues",
+    "viewDetails": "View Details",
+    "details": "Statement Details",
+    "baseSalary": "Base Salary",
+    "bonus": "Bonus",
+    "deductions": "Deductions",
+    "transactions": "Transaction Details",
+    "reason": "Reason",
+    "notes": "Notes",
+    "orderCount": "Order Count",
+    "txTypes": {
+      "salary": "Base Salary",
+      "bonus": "Bonus",
+      "admin_deduction": "Admin Deduction",
+      "keeta_deduction": "Keeta Orders Deduction",
+      "violation": "Violation",
+      "absence": "Absence"
+    }
   },
   "Tasks": {
     "title": "Tasks",
@@ -381,9 +416,27 @@
     "organization": "Organization",
     "vehiclePlate": "Vehicle plate",
     "language": "Language",
+    "driverDetails": "Driver details",
+    "vehicleDetails": "Vehicle details",
+    "iqamaNumber": "Iqama number",
+    "iqamaExpiryDate": "Iqama expiry date",
+    "driverCardNumber": "Driver card number",
+    "driverCardExpiryDate": "Driver card expiry date",
+    "keetaVehiclePlate": "Keeta vehicle plate",
+    "actualVehiclePlate": "Actual vehicle plate",
+    "actualPlate": "Actual plate number",
+    "vehicleType": "Vehicle type",
+    "operatingCardNumber": "Operating card number",
+    "operatingCardExpiry": "Operating card expiry",
+    "authorizationExpiry": "Authorization expiry",
+    "operationalStatus": "Operational status",
     "changePassword": "Change password",
     "logout": "Sign out",
     "notAvailable": "Not available",
+    "operational": {
+      "active": "Active",
+      "suspended": "Suspended"
+    },
     "languages": {
       "ar": "العربية",
       "en": "English",
@@ -437,6 +490,21 @@
       "open": "Open",
       "completed": "Completed",
       "cancelled": "Cancelled"
+    },
+    "requestTitle": "Request shift change for next week",
+    "requestDesc": "You can request a shift change for next week. The change will take effect from next Sunday.",
+    "newShiftLabel": "Desired shift for next week",
+    "selectShift": "Select a shift...",
+    "noteLabel": "Notes or reason for change (optional)",
+    "notePlaceholder": "Enter the reason for the change here...",
+    "submitBtn": "Submit change request",
+    "sending": "Sending...",
+    "successMessage": "Shift change request submitted successfully.",
+    "pendingRequestTitle": "A pending request already exists",
+    "pendingRequestDesc": "A request to change to \"{shift}\" shift for the week starting {date} is currently under review.",
+    "errors": {
+      "validationError": "Please check the required fields.",
+      "submitFailed": "Failed to submit the request. Please try again later."
     }
   },
   "ChangePassword": {

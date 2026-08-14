@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f5f8fc",
+  themeColor: "#10233f",
 };
 
 export default function RootRedirectLayout({
@@ -42,7 +42,7 @@ export default function RootRedirectLayout({
       dir="rtl"
       className={`${cairo.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full bg-navy">{children}</body>
     </html>
   );
 }

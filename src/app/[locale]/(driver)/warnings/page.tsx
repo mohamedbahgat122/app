@@ -2,7 +2,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { RealtimeRefresh } from "@/components/app-shell/realtime-refresh";
 import { isLocale, type Locale } from "@/config/locales";
 import { Link } from "@/i18n/navigation";
-import { loadDriverAppContext } from "@/lib/app/driver-app-data";
+import { loadDriverSession } from "@/lib/app/driver-app-data";
 import { loadDriverWarnings, type DriverWarning } from "@/lib/app/driver-warnings";
 
 type RouteProps = { params: Promise<{ locale: string }> };
@@ -11,20 +11,20 @@ export default async function WarningsPage({ params }: RouteProps) {
   const { locale } = await params;
   if (!isLocale(locale)) return null;
   setRequestLocale(locale);
-  const app = await loadDriverAppContext(locale);
+  const app = await loadDriverSession(locale);
   if (app.status === "application_error") return null;
   const t = await getTranslations({ locale, namespace: "Warnings" });
   const warnings = await loadDriverWarnings({
     supabase: app.supabase,
-    driverId: app.context.session.driver.id,
+    driverId: app.session.driver.id,
   });
 
   return (
     <>
       <RealtimeRefresh
-        channelName={`driver-warnings-${app.context.session.driver.id}`}
+        channelName={`driver-warnings-${app.session.driver.id}`}
         table="driver_warnings"
-        filter={`driver_id=eq.${app.context.session.driver.id}`}
+        filter={`driver_id=eq.${app.session.driver.id}`}
         toast={t("realtime.updated")}
       />
       <main className="space-y-4">
