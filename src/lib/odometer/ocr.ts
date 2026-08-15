@@ -1,40 +1,89 @@
 import type { OdometerCrop } from "@/components/camera/odometer-camera";
 
-export type OdometerOcrResult = {
-  reading: string | null;
+export type OdometerOcrCandidate = {
+  reading: string;
   confidence: number;
+  pass: string;
   rawText: string;
-  status: "high" | "low" | "failed";
 };
 
-const highConfidenceThreshold = 68;
+export type OdometerOcrResult = {
+  reading: string | null;
+  accepted: boolean;
+  confidence: number;
+  rawText: string;
+  candidates: OdometerOcrCandidate[];
+  status: "accepted" | "rejected";
+  rejectionReason: "no_candidate" | "low_confidence" | "conflict" | null;
+};
+
+type OdometerOcrPass = {
+  name: string;
+  cropPaddingX: number;
+  cropPaddingY: number;
+  maxWidth: number;
+  mode: "grayscale" | "contrast" | "threshold";
+  threshold?: number;
+  contrast?: number;
+};
+
+const minimumAcceptedConfidence = 55;
+const minimumCandidateDigits = 4;
+const preferredMinimumDigits = 5;
+const preferredMaximumDigits = 8;
+const strongDisagreementRatio = 0.55;
 let workerPromise: Promise<import("tesseract.js").Worker> | null = null;
+
+const ocrPasses: OdometerOcrPass[] = [
+  {
+    name: "wide-grayscale",
+    cropPaddingX: 0.38,
+    cropPaddingY: 0.48,
+    maxWidth: 1100,
+    mode: "grayscale",
+    contrast: 1.15,
+  },
+  {
+    name: "wide-contrast",
+    cropPaddingX: 0.46,
+    cropPaddingY: 0.55,
+    maxWidth: 1100,
+    mode: "contrast",
+    contrast: 1.55,
+  },
+  {
+    name: "wide-threshold",
+    cropPaddingX: 0.52,
+    cropPaddingY: 0.62,
+    maxWidth: 1200,
+    mode: "threshold",
+    contrast: 1.35,
+    threshold: 138,
+  },
+];
 
 export async function readOdometerFromPhoto(
   blob: Blob,
   crop: OdometerCrop,
 ): Promise<OdometerOcrResult> {
-  const image = await preprocessOdometerImage(blob, crop);
+  const worker = await getOdometerWorker();
+  const candidates: OdometerOcrCandidate[] = [];
+  const rawTexts: string[] = [];
 
-  try {
-    const worker = await getOdometerWorker();
-    const { data } = await worker.recognize(image);
-    const extracted = extractOdometerReading(data.text, data.confidence);
+  for (const pass of ocrPasses) {
+    const image = await preprocessOdometerImage(blob, crop, pass);
 
-    return {
-      reading: extracted.reading,
-      confidence: extracted.confidence,
-      rawText: data.text,
-      status:
-        extracted.reading && extracted.confidence >= highConfidenceThreshold
-          ? "high"
-          : extracted.reading
-            ? "low"
-            : "failed",
-    };
-  } finally {
-    URL.revokeObjectURL(image);
+    try {
+      const { data } = await worker.recognize(image);
+      rawTexts.push(`[${pass.name}] ${data.text}`);
+      const extracted = extractOdometerReading(data.text, data.confidence, pass.name);
+      candidates.push(...extracted);
+    } finally {
+      URL.revokeObjectURL(image);
+    }
   }
+
+  return buildConsensusResult(candidates, rawTexts.join("\n"));
 }
 
 export async function terminateOdometerOcrWorker() {
@@ -46,39 +95,41 @@ export async function terminateOdometerOcrWorker() {
 export function extractOdometerReading(
   ocrText: string,
   confidence: number,
-): { reading: string | null; confidence: number; rawText: string } {
+  pass = "unknown",
+): OdometerOcrCandidate[] {
   const normalized = normalizeOcrText(ocrText);
-  const candidates = Array.from(normalized.matchAll(/\d[\d,\s]{2,12}\d|\d{4,10}/gu))
-    .map((match) => {
+  const candidates: OdometerOcrCandidate[] = [];
+  const patterns = [
+    /(?<!\d)(?:\d{1,3}(?:[\s,.]\d{3}){1,3})(?!\d)/gu,
+    /(?<!\d)\d{4,9}(?!\d)/gu,
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of normalized.matchAll(pattern)) {
       const raw = match[0];
       const reading = raw.replace(/[^\d]/g, "");
-      const before = normalized.slice(Math.max(0, match.index - 10), match.index);
-      const after = normalized.slice(match.index + raw.length, match.index + raw.length + 10);
+      if (!isPlausibleReading(reading)) continue;
+
+      const before = normalized.slice(Math.max(0, match.index - 14), match.index);
+      const after = normalized.slice(match.index + raw.length, match.index + raw.length + 14);
       let score = confidence;
 
-      if (/(odo|odometer|km|كلم|كم)$/iu.test(before.trim())) score += 18;
-      if (/^(km|odo|odometer|كلم|كم)/iu.test(after.trim())) score += 18;
-      if (reading.length >= 5 && reading.length <= 7) score += 16;
-      if (reading.length < 4) score -= 40;
-      if (reading.length > 8) score -= 15;
-      if (looksLikeClockOrTemperature(raw, before, after)) score -= 45;
+      if (hasOdometerContext(before, after)) score += 18;
+      if (reading.length >= preferredMinimumDigits && reading.length <= preferredMaximumDigits) score += 16;
+      if (/^0{2,}\d{3,}$/u.test(reading)) score -= 45;
+      if (looksLikeClockOrTemperature(raw, before, after)) score -= 50;
+      if (looksLikeSpeed(raw, before, after)) score -= 35;
 
-      return { reading, score };
-    })
-    .filter((candidate) => {
-      if (!candidate.reading) return false;
-      const value = Number(candidate.reading);
-      return Number.isInteger(value) && value >= 0 && value <= 2_147_483_647;
-    })
-    .sort((a, b) => b.score - a.score || b.reading.length - a.reading.length);
+      candidates.push({
+        reading,
+        confidence: clamp(Math.round(score), 0, 100),
+        pass,
+        rawText: ocrText,
+      });
+    }
+  }
 
-  const best = candidates[0];
-
-  return {
-    reading: best?.reading ?? null,
-    confidence: Math.max(0, Math.min(100, Math.round(best?.score ?? confidence))),
-    rawText: ocrText,
-  };
+  return dedupeCandidates(candidates);
 }
 
 async function getOdometerWorker() {
@@ -86,7 +137,7 @@ async function getOdometerWorker() {
     const { createWorker, PSM } = await import("tesseract.js");
     const worker = await createWorker("eng");
     await worker.setParameters({
-      tessedit_char_whitelist: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz,. kmKMODOodo",
+      tessedit_char_whitelist: "0123456789,. kmKMODOodo",
       tessedit_pageseg_mode: PSM.SPARSE_TEXT,
       preserve_interword_spaces: "1",
     });
@@ -96,11 +147,81 @@ async function getOdometerWorker() {
   return workerPromise;
 }
 
-async function preprocessOdometerImage(blob: Blob, crop: OdometerCrop) {
+function buildConsensusResult(
+  candidates: OdometerOcrCandidate[],
+  rawText: string,
+): OdometerOcrResult {
+  const usableCandidates = dedupeCandidates(candidates)
+    .filter((candidate) => candidate.confidence >= 35)
+    .sort((a, b) => b.confidence - a.confidence);
+
+  if (usableCandidates.length === 0) {
+    return rejectedResult("no_candidate", rawText, []);
+  }
+
+  const groups = new Map<string, OdometerOcrCandidate[]>();
+
+  for (const candidate of usableCandidates) {
+    groups.set(candidate.reading, [...(groups.get(candidate.reading) ?? []), candidate]);
+  }
+
+  const rankedGroups = Array.from(groups.entries())
+    .map(([reading, group]) => ({
+      reading,
+      group,
+      passCount: new Set(group.map((candidate) => candidate.pass)).size,
+      averageConfidence: average(group.map((candidate) => candidate.confidence)),
+      bestConfidence: Math.max(...group.map((candidate) => candidate.confidence)),
+    }))
+    .sort((a, b) => {
+      if (b.passCount !== a.passCount) return b.passCount - a.passCount;
+      if (b.averageConfidence !== a.averageConfidence) return b.averageConfidence - a.averageConfidence;
+      return b.reading.length - a.reading.length;
+    });
+
+  const best = rankedGroups[0];
+  const second = rankedGroups[1];
+
+  if (!best) {
+    return rejectedResult("no_candidate", rawText, usableCandidates);
+  }
+
+  if (best.passCount < 2) {
+    return rejectedResult("conflict", rawText, usableCandidates);
+  }
+
+  if (best.averageConfidence < minimumAcceptedConfidence && best.bestConfidence < 72) {
+    return rejectedResult("low_confidence", rawText, usableCandidates);
+  }
+
+  if (
+    second &&
+    second.passCount >= 2 &&
+    second.averageConfidence >= best.averageConfidence * strongDisagreementRatio &&
+    second.reading !== best.reading
+  ) {
+    return rejectedResult("conflict", rawText, usableCandidates);
+  }
+
+  return {
+    reading: best.reading,
+    accepted: true,
+    confidence: clamp(Math.round(best.averageConfidence), 0, 100),
+    rawText,
+    candidates: usableCandidates,
+    status: "accepted",
+    rejectionReason: null,
+  };
+}
+
+async function preprocessOdometerImage(
+  blob: Blob,
+  crop: OdometerCrop,
+  pass: OdometerOcrPass,
+) {
   const bitmap = await createImageBitmap(blob);
-  const source = getSourceCrop(bitmap.width, bitmap.height, crop);
-  const maxWidth = 900;
-  const scale = Math.min(maxWidth / source.width, 1);
+  const source = getSourceCrop(bitmap.width, bitmap.height, crop, pass);
+  const scale = Math.min(pass.maxWidth / source.width, 1);
   const width = Math.max(1, Math.round(source.width * scale));
   const height = Math.max(1, Math.round(source.height * scale));
   const canvas = document.createElement("canvas");
@@ -125,20 +246,7 @@ async function preprocessOdometerImage(blob: Blob, crop: OdometerCrop) {
     height,
   );
   bitmap.close();
-
-  const imageData = context.getImageData(0, 0, width, height);
-  const data = imageData.data;
-
-  for (let index = 0; index < data.length; index += 4) {
-    const gray = data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114;
-    const contrasted = Math.max(0, Math.min(255, (gray - 128) * 1.45 + 128));
-    const thresholded = contrasted > 148 ? 255 : 0;
-    data[index] = thresholded;
-    data[index + 1] = thresholded;
-    data[index + 2] = thresholded;
-  }
-
-  context.putImageData(imageData, 0, 0);
+  applyImageProcessing(context, width, height, pass);
 
   const processedBlob = await new Promise<Blob | null>((resolve) => {
     canvas.toBlob(resolve, "image/png");
@@ -151,9 +259,40 @@ async function preprocessOdometerImage(blob: Blob, crop: OdometerCrop) {
   return URL.createObjectURL(processedBlob);
 }
 
-function getSourceCrop(width: number, height: number, crop: OdometerCrop) {
-  const paddingX = crop.width * 0.12;
-  const paddingY = crop.height * 0.22;
+function applyImageProcessing(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  pass: OdometerOcrPass,
+) {
+  const imageData = context.getImageData(0, 0, width, height);
+  const data = imageData.data;
+
+  for (let index = 0; index < data.length; index += 4) {
+    const gray = data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114;
+    const contrasted = clamp((gray - 128) * (pass.contrast ?? 1) + 128, 0, 255);
+    const value = pass.mode === "threshold"
+      ? contrasted > (pass.threshold ?? 145)
+        ? 255
+        : 0
+      : contrasted;
+
+    data[index] = value;
+    data[index + 1] = value;
+    data[index + 2] = value;
+  }
+
+  context.putImageData(imageData, 0, 0);
+}
+
+function getSourceCrop(
+  width: number,
+  height: number,
+  crop: OdometerCrop,
+  pass: OdometerOcrPass,
+) {
+  const paddingX = crop.width * pass.cropPaddingX;
+  const paddingY = crop.height * pass.cropPaddingY;
   const x = clamp(crop.x - paddingX, 0, 1);
   const y = clamp(crop.y - paddingY, 0, 1);
   const right = clamp(crop.x + crop.width + paddingX, 0, 1);
@@ -174,16 +313,68 @@ function normalizeOcrText(value: string) {
       if (eastern >= 0) return String(eastern);
       const persian = "۰۱۲۳۴۵۶۷۸۹".indexOf(char);
       if (persian >= 0) return String(persian);
+      if (/[|Il]/u.test(char)) return "1";
       return char;
     })
-    .join("")
-    .replace(/[|Il]/g, "1")
-    .replace(/[Oo]/g, "0");
+    .join("");
+}
+
+function isPlausibleReading(reading: string) {
+  if (reading.length < minimumCandidateDigits || reading.length > 9) return false;
+  if (/^0{2,}\d{3,}$/u.test(reading)) return false;
+
+  const value = Number(reading);
+  return Number.isInteger(value) && value >= 0 && value <= 2_147_483_647;
+}
+
+function dedupeCandidates(candidates: OdometerOcrCandidate[]) {
+  const map = new Map<string, OdometerOcrCandidate>();
+
+  for (const candidate of candidates) {
+    const key = `${candidate.pass}:${candidate.reading}`;
+    const existing = map.get(key);
+    if (!existing || candidate.confidence > existing.confidence) {
+      map.set(key, candidate);
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+function rejectedResult(
+  reason: OdometerOcrResult["rejectionReason"],
+  rawText: string,
+  candidates: OdometerOcrCandidate[],
+): OdometerOcrResult {
+  return {
+    reading: null,
+    accepted: false,
+    confidence: 0,
+    rawText,
+    candidates,
+    status: "rejected",
+    rejectionReason: reason,
+  };
+}
+
+function hasOdometerContext(before: string, after: string) {
+  return /(odo|odometer|km|كلم|كم)\s*$/iu.test(before.trim()) ||
+    /^\s*(km|odo|odometer|كلم|كم)/iu.test(after.trim());
 }
 
 function looksLikeClockOrTemperature(raw: string, before: string, after: string) {
   const context = `${before}${raw}${after}`;
   return /(\d{1,2}:\d{2}|°|c\b|temp|trip)/iu.test(context);
+}
+
+function looksLikeSpeed(raw: string, before: string, after: string) {
+  const compact = `${before}${raw}${after}`.replace(/\s+/g, "");
+  return /\b\d{1,3}km\/?h\b/iu.test(compact);
+}
+
+function average(values: number[]) {
+  if (values.length === 0) return 0;
+  return values.reduce((total, value) => total + value, 0) / values.length;
 }
 
 function clamp(value: number, min: number, max: number) {

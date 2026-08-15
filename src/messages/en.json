@@ -116,9 +116,8 @@
     "ocrReading": "Reading from the photo: {value}",
     "ocr": {
       "processing": "Reading the odometer from the photo...",
-      "success": "The number was read from the photo. Review it before continuing.",
-      "lowConfidence": "Could not fully confirm the odometer reading. Review the number or enter it manually.",
-      "failed": "Could not read the odometer automatically. Enter the number manually."
+      "accepted": "Odometer reading verified: {value} km",
+      "rejected": "Could not match a reliable odometer reading from the photo. Retake the photo."
     },
     "distancePreview": "Distance travelled: {value} km",
     "capturedPhoto": "Odometer photo",

@@ -47,6 +47,13 @@ export function ShiftActionCard({ mode, startReading }: ShiftActionCardProps) {
 
   const title = mode === "start" ? t("startShift") : t("endShift");
   const distancePreview = getDistancePreview(mode, startReading, reading);
+  const canSubmit =
+    Boolean(photo) &&
+    Boolean(reading) &&
+    ocrResult?.accepted === true &&
+    !isOcrProcessing &&
+    !errorKey &&
+    !isSaving;
 
   useEffect(() => {
     return () => {
@@ -70,7 +77,7 @@ export function ShiftActionCard({ mode, startReading }: ShiftActionCardProps) {
       .then((result) => {
         if (ocrRunRef.current !== runId) return;
         setOcrResult(result);
-        if (result.reading) {
+        if (result.accepted && result.reading) {
           setReading(result.reading);
           if (
             mode === "end" &&
@@ -79,16 +86,24 @@ export function ShiftActionCard({ mode, startReading }: ShiftActionCardProps) {
           ) {
             setErrorKey("endBelowStart");
           }
+        } else {
+          setReading("");
+          setErrorKey("unreadable");
         }
       })
       .catch(() => {
         if (ocrRunRef.current !== runId) return;
         setOcrResult({
           reading: null,
+          accepted: false,
           confidence: 0,
           rawText: "",
-          status: "failed",
+          candidates: [],
+          status: "rejected",
+          rejectionReason: "no_candidate",
         });
+        setReading("");
+        setErrorKey("unreadable");
       })
       .finally(() => {
         if (ocrRunRef.current === runId) {
@@ -102,6 +117,11 @@ export function ShiftActionCard({ mode, startReading }: ShiftActionCardProps) {
 
     if (!photo) {
       setErrorKey("photoRequired");
+      return;
+    }
+
+    if (isOcrProcessing || ocrResult?.accepted !== true || !reading) {
+      setErrorKey("unreadable");
       return;
     }
 
@@ -262,13 +282,10 @@ export function ShiftActionCard({ mode, startReading }: ShiftActionCardProps) {
               inputMode="numeric"
               dir="ltr"
               value={reading}
-              onChange={(event) => {
-                setReading(event.target.value.replace(/[^\d\u0660-\u0669\u06F0-\u06F9]/gu, ""));
-                setErrorKey(null);
-              }}
+              readOnly
               placeholder={t("readingPlaceholder")}
-              disabled={isSaving}
-              className="min-h-14 w-full rounded-[0.85rem] border border-border bg-primary-soft/70 px-4 text-left text-base text-navy outline-none transition placeholder:text-muted/70 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+              disabled={isSaving || isOcrProcessing}
+              className="min-h-14 w-full rounded-[0.85rem] border border-border bg-primary-soft/70 px-4 text-left text-base font-bold text-navy outline-none transition placeholder:text-muted/70 read-only:cursor-default read-only:focus:border-border read-only:focus:ring-0 disabled:opacity-80"
             />
             <OcrStatusMessage
               isProcessing={isOcrProcessing}
@@ -300,7 +317,7 @@ export function ShiftActionCard({ mode, startReading }: ShiftActionCardProps) {
               <button
                 type="button"
                 onClick={submitShift}
-                disabled={isSaving}
+                disabled={!canSubmit}
                 className="min-h-12 rounded-[0.85rem] bg-primary px-4 text-sm font-semibold text-white [touch-action:manipulation] disabled:opacity-70"
               >
                 {isSaving
@@ -368,25 +385,17 @@ function OcrStatusMessage({
 
   if (!result) return null;
 
-  if (result.status === "high" && result.reading) {
+  if (result.accepted && result.reading) {
     return (
       <p className="rounded-[0.85rem] border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
-        {t("ocr.success")}
-      </p>
-    );
-  }
-
-  if (result.status === "low" && result.reading) {
-    return (
-      <p className="rounded-[0.85rem] border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
-        {t("ocr.lowConfidence")}
+        {t("ocr.accepted", { value: result.reading })}
       </p>
     );
   }
 
   return (
     <p className="rounded-[0.85rem] border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
-      {t("ocr.failed")}
+      {t("ocr.rejected")}
     </p>
   );
 }
