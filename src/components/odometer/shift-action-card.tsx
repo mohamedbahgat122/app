@@ -1,10 +1,15 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { OdometerCamera, type OdometerCrop } from "@/components/camera/odometer-camera";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  readOdometerFromPhoto,
+  terminateOdometerOcrWorker,
+  type OdometerOcrResult,
+} from "@/lib/odometer/ocr";
 
 type ShiftMode = "start" | "end";
 
@@ -34,10 +39,22 @@ export function ShiftActionCard({ mode, startReading }: ShiftActionCardProps) {
   } | null>(null);
   const [stepKey, setStepKey] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [ocrResult, setOcrResult] = useState<OdometerOcrResult | null>(null);
+  const [isOcrProcessing, setIsOcrProcessing] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const ocrRunRef = useRef(0);
   const [, startTransition] = useTransition();
 
   const title = mode === "start" ? t("startShift") : t("endShift");
+  const distancePreview = getDistancePreview(mode, startReading, reading);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      ocrRunRef.current += 1;
+      void terminateOdometerOcrWorker();
+    };
+  }, []);
 
   function acceptPhoto(blob: Blob, capturedAt: string, url: string, crop: OdometerCrop) {
     setPhoto({ blob, capturedAt, url, crop });
@@ -45,6 +62,39 @@ export function ShiftActionCard({ mode, startReading }: ShiftActionCardProps) {
     setErrorKey(null);
     setServerErrorMessage(null);
     setSuccess(null);
+    setOcrResult(null);
+    setIsOcrProcessing(true);
+
+    const runId = ++ocrRunRef.current;
+    readOdometerFromPhoto(blob, crop)
+      .then((result) => {
+        if (ocrRunRef.current !== runId) return;
+        setOcrResult(result);
+        if (result.reading) {
+          setReading(result.reading);
+          if (
+            mode === "end" &&
+            startReading !== undefined &&
+            BigInt(result.reading) < BigInt(startReading)
+          ) {
+            setErrorKey("endBelowStart");
+          }
+        }
+      })
+      .catch(() => {
+        if (ocrRunRef.current !== runId) return;
+        setOcrResult({
+          reading: null,
+          confidence: 0,
+          rawText: "",
+          status: "failed",
+        });
+      })
+      .finally(() => {
+        if (ocrRunRef.current === runId) {
+          setIsOcrProcessing(false);
+        }
+      });
   }
 
   async function submitShift() {
@@ -212,19 +262,35 @@ export function ShiftActionCard({ mode, startReading }: ShiftActionCardProps) {
               inputMode="numeric"
               dir="ltr"
               value={reading}
-              onChange={(event) => setReading(event.target.value.replace(/[^\d\u0660-\u0669\u06F0-\u06F9]/gu, ""))}
+              onChange={(event) => {
+                setReading(event.target.value.replace(/[^\d\u0660-\u0669\u06F0-\u06F9]/gu, ""));
+                setErrorKey(null);
+              }}
               placeholder={t("readingPlaceholder")}
               disabled={isSaving}
               className="min-h-14 w-full rounded-[0.85rem] border border-border bg-primary-soft/70 px-4 text-left text-base text-navy outline-none transition placeholder:text-muted/70 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
             />
+            <OcrStatusMessage
+              isProcessing={isOcrProcessing}
+              result={ocrResult}
+            />
+            {distancePreview !== null ? (
+              <p className="rounded-[0.85rem] border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                {t("distancePreview", { value: distancePreview })}
+              </p>
+            ) : null}
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => {
+                  ocrRunRef.current += 1;
                   URL.revokeObjectURL(photo.url);
                   setPhoto(null);
                   setReading("");
+                  setOcrResult(null);
+                  setIsOcrProcessing(false);
                   setServerErrorMessage(null);
+                  setErrorKey(null);
                 }}
                 disabled={isSaving}
                 className="min-h-12 rounded-[0.85rem] border border-border px-4 text-sm font-semibold text-navy [touch-action:manipulation]"
@@ -283,6 +349,48 @@ export function ShiftActionCard({ mode, startReading }: ShiftActionCardProps) {
   );
 }
 
+function OcrStatusMessage({
+  isProcessing,
+  result,
+}: {
+  isProcessing: boolean;
+  result: OdometerOcrResult | null;
+}) {
+  const t = useTranslations("Odometer");
+
+  if (isProcessing) {
+    return (
+      <p className="rounded-[0.85rem] border border-primary/20 bg-primary-soft px-3 py-2 text-sm font-semibold text-primary">
+        {t("ocr.processing")}
+      </p>
+    );
+  }
+
+  if (!result) return null;
+
+  if (result.status === "high" && result.reading) {
+    return (
+      <p className="rounded-[0.85rem] border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+        {t("ocr.success")}
+      </p>
+    );
+  }
+
+  if (result.status === "low" && result.reading) {
+    return (
+      <p className="rounded-[0.85rem] border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+        {t("ocr.lowConfidence")}
+      </p>
+    );
+  }
+
+  return (
+    <p className="rounded-[0.85rem] border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+      {t("ocr.failed")}
+    </p>
+  );
+}
+
 function mapShiftError(message: string) {
   if (message.includes("network_failed")) return "networkFailed";
   if (message.includes("open_exists") || message.includes("openExists") || message.includes("SHIFT_OPEN_EXISTS")) {
@@ -325,6 +433,20 @@ function normalizeClientDigits(value: string) {
       return char;
     })
     .join("");
+}
+
+function getDistancePreview(
+  mode: ShiftMode,
+  startReading: number | undefined,
+  reading: string,
+) {
+  if (mode !== "end" || startReading === undefined || !reading) return null;
+  if (!/^[\d\u0660-\u0669\u06F0-\u06F9]+$/u.test(reading)) return null;
+
+  const value = Number(normalizeClientDigits(reading));
+  if (!Number.isSafeInteger(value) || value < startReading) return null;
+
+  return (value - startReading).toLocaleString("en-US");
 }
 
 function hasErrorCode(
