@@ -168,16 +168,24 @@
     "instruction": "Place the odometer digits clearly inside the frame",
     "loading": "Opening camera...",
     "capture": "Capture photo",
+    "finalizing": "Verifying...",
     "close": "Close camera",
     "retake": "Retake",
     "usePhoto": "Use Photo",
     "previewAlt": "Odometer photo preview",
+    "alignment": {
+      "hint": "Move the phone until the frame turns green",
+      "verifying": "Checking the odometer...",
+      "aligned": "Aligned correctly"
+    },
     "errors": {
       "insecure": "A secure HTTPS connection is required to use the camera",
       "unavailable": "The camera is not available on this device",
       "permission": "Camera permission was denied",
       "noDevice": "No camera device was found",
-      "captureFailed": "Could not capture the photo. Please try again."
+      "captureFailed": "Could not capture the photo. Please try again.",
+      "alignFirst": "Place the odometer reading inside the frame first.",
+      "finalVerificationFailed": "Could not verify the odometer reading. Retake the photo."
     }
   },
   "Requests": {
