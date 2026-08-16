@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Cairo, Geist_Mono, Noto_Nastaliq_Urdu, Noto_Sans_Bengali } from "next/font/google";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
@@ -7,36 +6,14 @@ import { RouteSplashFallback } from "@/components/splash/route-splash-fallback";
 import { StartupSplash } from "@/components/splash/startup-splash";
 import { getDirection, type Locale } from "@/config/locales";
 import { routing } from "@/i18n/routing";
+import { localFontVariables } from "@/lib/fonts";
 import "../globals.css";
 
-const cairo = Cairo({
-  variable: "--font-cairo",
-  subsets: ["arabic", "latin"],
-  weight: ["400", "500", "600", "700", "800"],
-});
-
-const urdu = Noto_Nastaliq_Urdu({
-  variable: "--font-urdu",
-  subsets: ["arabic"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const bengali = Noto_Sans_Bengali({
-  variable: "--font-bengali",
-  subsets: ["bengali", "latin"],
-  weight: ["400", "500", "600", "700", "800"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 const fontByLocale: Record<Locale, string> = {
-  ar: "--font-cairo",
-  en: "--font-cairo",
-  ur: "--font-urdu",
-  bn: "--font-bengali",
+  ar: "var(--font-cairo), var(--font-cairo-latin)",
+  en: "var(--font-cairo-latin), var(--font-cairo)",
+  ur: "var(--font-urdu), var(--font-urdu-latin)",
+  bn: "var(--font-bengali), var(--font-bengali-latin)",
 };
 
 export const metadata: Metadata = {
@@ -90,9 +67,9 @@ export default async function LocaleLayout({
     <html
       lang={typedLocale}
       dir={getDirection(typedLocale)}
-      className={`${cairo.variable} ${urdu.variable} ${bengali.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${localFontVariables} h-full antialiased`}
       style={{
-        "--font-app": `var(${fontByLocale[typedLocale]})`,
+        "--font-app": fontByLocale[typedLocale],
       } as React.CSSProperties}
     >
       <body className="min-h-full bg-navy">
