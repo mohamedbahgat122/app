@@ -78,6 +78,14 @@ const ocrPasses: OdometerOcrPass[] = [
     contrast: 1.15,
   },
   {
+    name: "scan-invert",
+    cropPaddingX: 0.07,
+    cropPaddingY: 0.08,
+    maxWidth: 1100,
+    mode: "invert",
+    contrast: 1.2,
+  },
+  {
     name: "scan-contrast",
     cropPaddingX: 0.07,
     cropPaddingY: 0.08,

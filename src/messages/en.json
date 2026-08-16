@@ -174,9 +174,11 @@
     "usePhoto": "Use Photo",
     "previewAlt": "Odometer photo preview",
     "alignment": {
-      "hint": "Place the odometer number inside the frame until it turns green",
-      "verifying": "Reading the number...",
-      "aligned": "Number detected"
+      "hint": "Place the odometer number inside the frame",
+      "aligned": "Odometer identified",
+      "capturing": "Capturing photo...",
+      "verifying": "Reading odometer number...",
+      "verified": "Odometer reading verified"
     },
     "errors": {
       "insecure": "A secure HTTPS connection is required to use the camera",
@@ -185,7 +187,7 @@
       "noDevice": "No camera device was found",
       "captureFailed": "Could not capture the photo. Please try again.",
       "alignFirst": "Place the odometer reading inside the frame first.",
-      "finalVerificationFailed": "Could not verify the odometer reading. Retake the photo."
+      "finalVerificationFailed": "Could not read the number clearly. Move the camera closer and retake photo."
     }
   },
   "Requests": {

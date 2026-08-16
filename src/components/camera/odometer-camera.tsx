@@ -3,17 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
-  readOdometerLiveDetection,
   readOdometerFromPhoto,
   type OdometerOcrResult,
 } from "@/lib/odometer/ocr";
+import { LiveFrameAnalyzer } from "@/lib/odometer/live-frame-analysis";
 import { OCR_DEBUG } from "@/lib/odometer/ocr-debug-flag";
 
 type CameraStatus = "idle" | "loading" | "ready" | "captured" | "error";
-// "idle"     = camera not yet started / no scan run yet
-// "scanning" = OCR in flight
-// "aligned"  = digit found
-type DetectionStatus = "idle" | "aligned";
+type DetectionStatus = "idle" | "aligned" | "capturing";
 
 type OdometerCameraProps = {
   onClose: () => void;
@@ -37,12 +34,14 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const guideRef = useRef<HTMLDivElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const liveOcrActiveRef = useRef(false);
-  const liveOcrRunRef = useRef(0);
+
+  const liveRunRef = useRef(0);
+  const analyzerRef = useRef<LiveFrameAnalyzer | null>(null);
+  const autoCaptureTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const [status, setStatus] = useState<CameraStatus>("idle");
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [detectionStatus, setDetectionStatus] = useState<DetectionStatus>("idle");
-  const [liveOcrResult, setLiveOcrResult] = useState<OdometerOcrResult | null>(null);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [capture, setCapture] = useState<{
     blob: Blob;
@@ -51,11 +50,12 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     crop: OdometerCrop;
   } | null>(null);
 
-  // Dev-only: show crop dimensions and OCR result under the frame
+  // Dev-only debug info
   const [devCropInfo, setDevCropInfo] = useState<string | null>(null);
   const [devOcrPanel, setDevOcrPanel] = useState<string | null>(null);
 
   useEffect(() => {
+    analyzerRef.current = new LiveFrameAnalyzer();
     void openCamera();
 
     function handleVisibilityChange() {
@@ -68,21 +68,28 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      liveOcrRunRef.current += 1;
+      liveRunRef.current += 1;
+      clearAutoCaptureTimer();
       stopCamera();
       if (capture?.url) {
         URL.revokeObjectURL(capture.url);
       }
     };
-    // Opening happens once per intentional modal mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function clearAutoCaptureTimer() {
+    if (autoCaptureTimerRef.current) {
+      clearTimeout(autoCaptureTimerRef.current);
+      autoCaptureTimerRef.current = null;
+    }
+  }
 
   async function openCamera() {
     setStatus("loading");
     setErrorKey(null);
-    setLiveOcrResult(null);
     setDetectionStatus("idle");
+    analyzerRef.current?.reset();
 
     if (!window.isSecureContext) {
       setErrorKey("insecure");
@@ -176,42 +183,36 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
       return;
     }
 
-    if (!liveOcrResult?.accepted || !liveOcrResult.reading) {
-      setErrorKey("alignFirst");
-      return;
-    }
-
+    clearAutoCaptureTimer();
     setIsFinalizing(true);
+    setErrorKey(null);
 
     try {
       const finalResult = await readOdometerFromPhoto(blob, crop);
 
-      if (
-        !finalResult.accepted ||
-        !finalResult.reading ||
-        finalResult.reading !== liveOcrResult.reading
-      ) {
-        setLiveOcrResult(finalResult);
+      if (!finalResult.accepted || !finalResult.reading) {
         setDetectionStatus("idle");
         setErrorKey("finalVerificationFailed");
+        analyzerRef.current?.reset();
         return;
       }
+
+      // Success! Final OCR accepted reading
+      stopCamera();
+      setCapture({
+        blob,
+        capturedAt: new Date().toISOString(),
+        url: URL.createObjectURL(blob),
+        crop,
+      });
+      setStatus("captured");
     } catch {
       setDetectionStatus("idle");
       setErrorKey("finalVerificationFailed");
-      return;
+      analyzerRef.current?.reset();
     } finally {
       setIsFinalizing(false);
     }
-
-    stopCamera();
-    setCapture({
-      blob,
-      capturedAt: new Date().toISOString(),
-      url: URL.createObjectURL(blob),
-      crop,
-    });
-    setStatus("captured");
   }
 
   function retake() {
@@ -219,38 +220,91 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
       URL.revokeObjectURL(capture.url);
     }
     setCapture(null);
-    setLiveOcrResult(null);
     setDetectionStatus("idle");
     setErrorKey(null);
     void openCamera();
   }
 
   function close() {
-    liveOcrRunRef.current += 1;
+    liveRunRef.current += 1;
+    clearAutoCaptureTimer();
     stopCamera();
     onClose();
   }
 
-  // ── Live OCR loop ─────────────────────────────────────────────────────────
+  // ── Visual-only Live Frame Analysis Loop (NO Tesseract in live loop) ────────
   useEffect(() => {
     if (status !== "ready") return;
 
-    const runId = ++liveOcrRunRef.current;
+    const runId = ++liveRunRef.current;
     const interval = window.setInterval(() => {
-      void runLiveOcr(runId);
-    }, 900);
-
-    void runLiveOcr(runId);
+      runLiveFrameAnalysis(runId);
+    }, 120);
 
     return () => {
       window.clearInterval(interval);
+      clearAutoCaptureTimer();
     };
-    // Live detection intentionally follows camera readiness.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  // ── Alignment status label ────────────────────────────────────────────────
+  function runLiveFrameAnalysis(runId: number) {
+    const video = videoRef.current;
+    if (
+      runId !== liveRunRef.current ||
+      status !== "ready" ||
+      isFinalizing ||
+      !video ||
+      !analyzerRef.current
+    ) {
+      return;
+    }
+
+    const crop = getNormalizedGuideCrop(video);
+    if (!crop) return;
+
+    const analysis = analyzerRef.current.analyzeFrame(
+      video,
+      crop.x,
+      crop.y,
+      crop.width,
+      crop.height,
+    );
+
+    if (OCR_DEBUG) {
+      setDevCropInfo(
+        `video: ${video.videoWidth}×${video.videoHeight} | crop: x=${crop.x.toFixed(2)} y=${crop.y.toFixed(2)}`,
+      );
+      setDevOcrPanel(
+        `LIVE VISUAL:\ncontent=${analysis.hasDigitContent} | stable=${analysis.isStable} | ready=${analysis.isReadyForCapture}\ncontrast=${analysis.contrast} | edgeDensity=${analysis.edgeDensity}% | motionDiff=${analysis.motionDiff}`,
+      );
+    }
+
+    if (analysis.isReadyForCapture) {
+      if (detectionStatus !== "aligned" && detectionStatus !== "capturing") {
+        setDetectionStatus("aligned");
+      }
+
+      // Schedule auto-capture after ~350ms of continuous stability
+      if (!autoCaptureTimerRef.current && !isFinalizing) {
+        autoCaptureTimerRef.current = setTimeout(() => {
+          autoCaptureTimerRef.current = null;
+          setDetectionStatus("capturing");
+          void captureFrame();
+        }, 350);
+      }
+    } else {
+      // Lost alignment / moved
+      clearAutoCaptureTimer();
+      if (detectionStatus === "aligned" && !isFinalizing) {
+        setDetectionStatus("idle");
+      }
+    }
+  }
+
   function getAlignmentLabel(): string {
+    if (isFinalizing) return t("alignment.verifying");
+    if (detectionStatus === "capturing") return t("alignment.capturing");
     if (detectionStatus === "aligned") return t("alignment.aligned");
     return t("alignment.hint");
   }
@@ -290,12 +344,12 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
                 ref={guideRef}
                 className={[
                   "pointer-events-none absolute inset-x-6 top-1/2 h-24 -translate-y-1/2 rounded-xl border-[3px] shadow-[0_0_0_999px_rgba(0,0,0,0.42)] transition-colors duration-200",
-                  detectionStatus === "aligned"
+                  detectionStatus === "aligned" || detectionStatus === "capturing"
                     ? "border-emerald-400 shadow-[0_0_0_999px_rgba(0,0,0,0.34),0_0_28px_rgba(52,211,153,0.38)]"
                     : "border-amber-300",
                 ].join(" ")}
               >
-                {detectionStatus === "aligned" ? (
+                {detectionStatus === "aligned" || detectionStatus === "capturing" ? (
                   <span className="absolute -top-4 end-4 flex size-8 items-center justify-center rounded-full bg-emerald-400 text-base font-black text-navy shadow-lg">
                     ✓
                   </span>
@@ -305,14 +359,12 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
                 {getAlignmentLabel()}
               </div>
 
-              {/* DEV-ONLY crop info banner */}
               {OCR_DEBUG && devCropInfo ? (
                 <div className="pointer-events-none absolute inset-x-0 top-0 bg-black/70 px-2 py-1 text-center font-mono text-[9px] text-green-300">
                   {devCropInfo}
                 </div>
               ) : null}
 
-              {/* DEV-ONLY OCR result panel */}
               {OCR_DEBUG && devOcrPanel ? (
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/80 px-2 py-1 font-mono text-[9px] text-yellow-200 whitespace-pre">
                   {devOcrPanel}
@@ -356,7 +408,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
             <button
               type="button"
               onClick={captureFrame}
-              disabled={status !== "ready" || detectionStatus !== "aligned" || isFinalizing}
+              disabled={status !== "ready" || isFinalizing}
               className="min-h-14 w-full rounded-[0.85rem] bg-primary px-5 text-base font-semibold text-white transition [touch-action:manipulation] disabled:opacity-60"
             >
               {isFinalizing ? t("finalizing") : t("capture")}
@@ -372,97 +424,6 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     </div>
   );
 
-  // ── Live OCR implementation ───────────────────────────────────────────────
-  async function runLiveOcr(runId: number) {
-    const video = videoRef.current;
-    const crop = video ? getNormalizedGuideCrop(video) : null;
-
-    if (
-      liveOcrActiveRef.current ||
-      runId !== liveOcrRunRef.current ||
-      status !== "ready" ||
-      !video ||
-      !crop
-    ) {
-      return;
-    }
-
-    liveOcrActiveRef.current = true;
-
-    try {
-      const blob = await captureScanBoxBlob(video, crop);
-      if (!blob || runId !== liveOcrRunRef.current) return;
-
-      // Dev: show dimensions
-      if (OCR_DEBUG) {
-        const vw = video.videoWidth;
-        const vh = video.videoHeight;
-        const vrect = video.getBoundingClientRect();
-        setDevCropInfo(
-          `video: ${vw}×${vh} | rendered: ${Math.round(vrect.width)}×${Math.round(vrect.height)} | crop: x=${crop.x.toFixed(3)} y=${crop.y.toFixed(3)} w=${crop.width.toFixed(3)} h=${crop.height.toFixed(3)}`,
-        );
-      }
-
-      const result = await readOdometerLiveDetection(blob, {
-        x: 0,
-        y: 0,
-        width: 1,
-        height: 1,
-      });
-
-      if (runId !== liveOcrRunRef.current) return;
-
-      if (OCR_DEBUG) {
-        const passes = result._debugPasses ?? {};
-        const normalText = passes["live-normal"] ?? "";
-        const invertText = passes["live-invert"] ?? "";
-        const candidate = result.reading ?? "null";
-        const conf = result.confidence;
-        const accepted = result.accepted;
-        const uiState = result.accepted ? "aligned" : "idle";
-        const panel = [
-          `LIVE DEBUG:`,
-          `normal=${JSON.stringify(normalText)}`,
-          `invert=${JSON.stringify(invertText)}`,
-          `candidate=${candidate}`,
-          `confidence=${conf}`,
-          `accepted=${String(accepted)}`,
-          `state=${uiState}`,
-        ].join("\n");
-        setDevOcrPanel(panel);
-        console.log(panel);
-      }
-
-      if (result.accepted) {
-        setLiveOcrResult(result);
-        setDetectionStatus("aligned");
-      } else {
-        setLiveOcrResult(null);
-        // Return to "idle" (show hint) so "scanning" disappears between scans
-        setDetectionStatus("idle");
-      }
-      setErrorKey(null);
-    } catch {
-      if (runId === liveOcrRunRef.current) {
-        setLiveOcrResult(null);
-        setDetectionStatus("idle");
-      }
-    } finally {
-      liveOcrActiveRef.current = false;
-    }
-  }
-
-  /**
-   * Map the visible guide frame rect to normalized video coordinates,
-   * correctly accounting for object-fit: cover.
-   *
-   * Under cover, the video is scaled so that its SMALLER dimension
-   * matches the container, and the LARGER dimension overflows (clipped).
-   * We must account for:
-   *  - The rendered (CSS) size of the video element itself (getBoundingClientRect)
-   *  - The intrinsic video resolution (videoWidth × videoHeight)
-   *  - The cover scale and the resulting negative offset (overflow crop)
-   */
   function getNormalizedGuideCrop(video: HTMLVideoElement): OdometerCrop | null {
     const guide = guideRef.current;
 
@@ -470,29 +431,22 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
       return null;
     }
 
-    // Rendered size of the <video> element on screen
     const videoRect = video.getBoundingClientRect();
     const guideRect = guide.getBoundingClientRect();
 
     if (videoRect.width <= 0 || videoRect.height <= 0) return null;
 
-    // Under object-fit: cover, the video is uniformly scaled so that both
-    // dimensions are ≥ the rendered container.  The scale factor is:
-    //   coverScale = max(renderedW / intrinsicW, renderedH / intrinsicH)
     const coverScale = Math.max(
       videoRect.width  / video.videoWidth,
       videoRect.height / video.videoHeight,
     );
 
-    // The displayed (virtual) size of the full video stream in CSS pixels
     const displayedWidth  = video.videoWidth  * coverScale;
     const displayedHeight = video.videoHeight * coverScale;
 
-    // The cover crop starts at a negative offset (the part that overflows)
-    const offsetX = (videoRect.width  - displayedWidth)  / 2; // ≤ 0 when cover clips
-    const offsetY = (videoRect.height - displayedHeight) / 2; // ≤ 0 when cover clips
+    const offsetX = (videoRect.width  - displayedWidth)  / 2;
+    const offsetY = (videoRect.height - displayedHeight) / 2;
 
-    // Position of the guide box relative to the video's virtual top-left
     const relLeft = guideRect.left - videoRect.left - offsetX;
     const relTop  = guideRect.top  - videoRect.top  - offsetY;
 
@@ -508,44 +462,6 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
       height: clamp01(height),
     };
   }
-}
-
-/**
- * Crop only the guide-box region from the live video stream.
- * Padding is NOT added here — it is applied inside the OCR preprocess step.
- */
-async function captureScanBoxBlob(
-  video: HTMLVideoElement,
-  crop: OdometerCrop,
-): Promise<Blob | null> {
-  const sourceX      = Math.round(crop.x * video.videoWidth);
-  const sourceY      = Math.round(crop.y * video.videoHeight);
-  const sourceWidth  = Math.max(1, Math.round(crop.width  * video.videoWidth));
-  const sourceHeight = Math.max(1, Math.round(crop.height * video.videoHeight));
-
-  // Keep the native resolution for the crop — OCR pass will resize
-  const canvas = document.createElement("canvas");
-  canvas.width  = sourceWidth;
-  canvas.height = sourceHeight;
-  const context = canvas.getContext("2d");
-
-  if (!context) return null;
-
-  context.drawImage(
-    video,
-    sourceX,
-    sourceY,
-    sourceWidth,
-    sourceHeight,
-    0,
-    0,
-    canvas.width,
-    canvas.height,
-  );
-
-  return new Promise<Blob | null>((resolve) => {
-    canvas.toBlob(resolve, "image/jpeg", 0.9);
-  });
 }
 
 function clamp01(value: number) {
