@@ -15,6 +15,8 @@ export type OdometerOcrResult = {
   candidates: OdometerOcrCandidate[];
   status: "accepted" | "rejected";
   rejectionReason: "no_candidate" | "low_confidence" | "conflict" | null;
+  /** DEV-ONLY: per-pass raw texts from live detection */
+  _debugPasses?: Record<string, string>;
 };
 
 type OdometerOcrPass = {
@@ -22,28 +24,52 @@ type OdometerOcrPass = {
   cropPaddingX: number;
   cropPaddingY: number;
   maxWidth: number;
-  mode: "grayscale" | "contrast" | "threshold";
+  mode: "grayscale" | "contrast" | "threshold" | "invert";
   threshold?: number;
   contrast?: number;
 };
 
+// ── Final OCR thresholds (strict) ──────────────────────────────────────────
 const minimumAcceptedConfidence = 55;
-const minimumLiveConfidence = 38;
 const minimumCandidateDigits = 4;
 const preferredMinimumDigits = 5;
 const preferredMaximumDigits = 8;
 const strongDisagreementRatio = 0.55;
+
+// ── Live OCR thresholds (lenient) ──────────────────────────────────────────
+/** Minimum digits in live mode: 3–8 */
+const liveMinimumDigits = 3;
+/** Accept if raw Tesseract confidence ≥ this value */
+const minimumLiveConfidence = 15;
+
+// ── Dev-only debug flag ────────────────────────────────────────────────────
+const IS_DEV = process.env.NODE_ENV === "development";
+
+// ── Shared worker (created once, reused across scans) ──────────────────────
 let workerPromise: Promise<import("tesseract.js").Worker> | null = null;
 
-const liveOcrPass: OdometerOcrPass = {
-  name: "live-grayscale",
-  cropPaddingX: 0,
-  cropPaddingY: 0,
-  maxWidth: 760,
+// ── Live OCR: two lightweight passes ─────────────────────────────────────
+// Pass 1: normal grayscale + gentle contrast  (light digits on dark bg → may need invert)
+// Pass 2: inverted grayscale                  (dark on light, classic OCR expectation)
+const liveOcrPassNormal: OdometerOcrPass = {
+  name: "live-normal",
+  cropPaddingX: 0.08,
+  cropPaddingY: 0.08,
+  maxWidth: 800,
   mode: "grayscale",
-  contrast: 1.18,
+  contrast: 1.1,
 };
 
+const liveOcrPassInvert: OdometerOcrPass = {
+  name: "live-invert",
+  cropPaddingX: 0.08,
+  cropPaddingY: 0.08,
+  maxWidth: 800,
+  mode: "invert",
+  contrast: 1.15,
+};
+
+// ── Final OCR passes (multi-pass, strict) ─────────────────────────────────
 const ocrPasses: OdometerOcrPass[] = [
   {
     name: "scan-grayscale",
@@ -72,39 +98,83 @@ const ocrPasses: OdometerOcrPass[] = [
   },
 ];
 
+// ──────────────────────────────────────────────────────────────────────────
+// PUBLIC API
+// ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * LIVE MODE — lenient two-pass OCR (normal + inverted).
+ *
+ * Returns accepted=true as soon as ANY 3–8 digit sequence is found in
+ * either pass. No consensus, no penalties, no repeated-reading requirement.
+ */
 export async function readOdometerLiveDetection(
   blob: Blob,
   crop: OdometerCrop,
 ): Promise<OdometerOcrResult> {
   const worker = await getOdometerWorker();
-  const image = await preprocessOdometerImage(blob, crop, liveOcrPass);
+  await setOdometerWorkerMode("live");
 
-  try {
-    await setOdometerWorkerMode("live");
-    const { data } = await worker.recognize(image);
-    const candidates = extractOdometerReading(data.text, data.confidence, liveOcrPass.name)
-      .filter((candidate) => candidate.confidence >= minimumLiveConfidence)
-      .sort((a, b) => b.confidence - a.confidence || b.reading.length - a.reading.length);
-    const candidate = candidates[0] ?? null;
+  const passes = [liveOcrPassNormal, liveOcrPassInvert];
+  const passResults: Record<string, string> = {};
 
-    if (!candidate) {
-      return rejectedResult("no_candidate", data.text, candidates);
+  for (const pass of passes) {
+    // Returns canvas directly — no Blob URL needed
+    const canvas = await preprocessOdometerImage(blob, crop, pass);
+
+    const { data } = await worker.recognize(canvas);
+    const rawText = data.text ?? "";
+    const rawConf = data.confidence ?? 0;
+
+    passResults[pass.name] = rawText.trim();
+
+    if (IS_DEV) {
+      // dataURL for debug preview — independent of OCR, never revoked
+      const dataUrl = canvas.toDataURL("image/png");
+      showDebugPreview(dataUrl, pass.name);
+      console.log(
+        `[OCR] ${pass.name} conf=${rawConf.toFixed(1)} | text=${JSON.stringify(rawText.trim())}`,
+      );
     }
 
-    return {
-      reading: candidate.reading,
-      accepted: true,
-      confidence: candidate.confidence,
-      rawText: data.text,
-      candidates,
-      status: "accepted",
-      rejectionReason: null,
-    };
-  } finally {
-    URL.revokeObjectURL(image);
+    const candidates = extractLiveCandidates(rawText, rawConf);
+
+    if (candidates.length > 0) {
+      const best = candidates[0]!;
+      if (IS_DEV) {
+        console.log(
+          `[OCR] FOUND via ${pass.name}: "${best.reading}" conf=${best.confidence} accepted=true`,
+        );
+      }
+      return {
+        reading: best.reading,
+        accepted: true,
+        confidence: best.confidence,
+        rawText,
+        candidates,
+        status: "accepted",
+        rejectionReason: null,
+        _debugPasses: IS_DEV ? { ...passResults } : undefined,
+      };
+    }
   }
+
+  if (IS_DEV) {
+    console.log(
+      `[OCR] No candidate. passes: ${JSON.stringify(passResults)}`,
+    );
+  }
+
+  return {
+    ...rejectedResult("no_candidate", "", []),
+    _debugPasses: IS_DEV ? passResults : undefined,
+  };
 }
 
+/**
+ * FINAL MODE — strict multi-pass OCR after photo is captured.
+ * Unchanged behaviour.
+ */
 export async function readOdometerFromPhoto(
   blob: Blob,
   crop: OdometerCrop,
@@ -114,17 +184,13 @@ export async function readOdometerFromPhoto(
   const rawTexts: string[] = [];
 
   for (const pass of ocrPasses) {
-    const image = await preprocessOdometerImage(blob, crop, pass);
-
-    try {
-      await setOdometerWorkerMode("final");
-      const { data } = await worker.recognize(image);
-      rawTexts.push(`[${pass.name}] ${data.text}`);
-      const extracted = extractOdometerReading(data.text, data.confidence, pass.name);
-      candidates.push(...extracted);
-    } finally {
-      URL.revokeObjectURL(image);
-    }
+    // Canvas passed directly — no Blob URL lifecycle risk
+    await setOdometerWorkerMode("final");
+    const canvas = await preprocessOdometerImage(blob, crop, pass);
+    const { data } = await worker.recognize(canvas);
+    rawTexts.push(`[${pass.name}] ${data.text}`);
+    const extracted = extractOdometerReading(data.text, data.confidence, pass.name);
+    candidates.push(...extracted);
   }
 
   return buildConsensusResult(candidates, rawTexts.join("\n"));
@@ -136,6 +202,7 @@ export async function terminateOdometerOcrWorker() {
   await worker?.terminate().catch(() => undefined);
 }
 
+/** Used by final-mode only. */
 export function extractOdometerReading(
   ocrText: string,
   confidence: number,
@@ -176,17 +243,73 @@ export function extractOdometerReading(
   return dedupeCandidates(candidates);
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// LIVE EXTRACTION — no penalties, just find digits
+// ──────────────────────────────────────────────────────────────────────────
+
+function extractLiveCandidates(
+  ocrText: string,
+  confidence: number,
+): OdometerOcrCandidate[] {
+  const normalized = normalizeOcrText(ocrText);
+  const candidates: OdometerOcrCandidate[] = [];
+
+  // Patterns: formatted numbers (e.g. 300,250) and plain digit sequences 3-8 digits
+  const patterns = [
+    /(?<!\d)(?:\d{1,3}(?:[\s,.]\d{3}){1,2})(?!\d)/gu,
+    /(?<!\d)\d{3,8}(?!\d)/gu,
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of normalized.matchAll(pattern)) {
+      const raw = match[0];
+      const reading = raw.replace(/[^\d]/g, "");
+      if (!isLivePlausibleReading(reading)) continue;
+
+      let score = confidence;
+      if (reading.length >= preferredMinimumDigits && reading.length <= preferredMaximumDigits) {
+        score += 8;
+      }
+
+      candidates.push({
+        reading,
+        confidence: clamp(Math.round(score), 0, 100),
+        pass: "live",
+        rawText: ocrText,
+      });
+    }
+  }
+
+  // Dedup by reading, keep highest confidence
+  const map = new Map<string, OdometerOcrCandidate>();
+  for (const c of candidates) {
+    const existing = map.get(c.reading);
+    if (!existing || c.confidence > existing.confidence) {
+      map.set(c.reading, c);
+    }
+  }
+
+  return Array.from(map.values())
+    .filter((c) => c.confidence >= minimumLiveConfidence)
+    .sort((a, b) => b.confidence - a.confidence || b.reading.length - a.reading.length);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// WORKER MANAGEMENT (single shared worker, reused)
+// ──────────────────────────────────────────────────────────────────────────
+
 async function getOdometerWorker() {
   workerPromise ??= (async () => {
     const { createWorker, PSM } = await import("tesseract.js");
     const worker = await createWorker("eng", 1, {
-      logger: () => undefined,
+      logger: () => undefined, // suppress all Tesseract console output
     });
     await worker.setParameters({
-      tessedit_char_whitelist: "0123456789,. kmKMODOodo",
-      tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+      // Start in live mode params; setOdometerWorkerMode will switch as needed
+      tessedit_char_whitelist: "0123456789",
+      tessedit_pageseg_mode: PSM.SINGLE_LINE,
       debug_file: "/dev/null",
-      preserve_interword_spaces: "1",
+      preserve_interword_spaces: "0",
     });
     return worker;
   })();
@@ -201,10 +324,12 @@ async function setOdometerWorkerMode(mode: "live" | "final") {
   await worker.setParameters(
     mode === "live"
       ? {
-          tessedit_char_whitelist: "0123456789,. ",
+          // Digits only — no km/ODO noise to confuse the model
+          tessedit_char_whitelist: "0123456789",
+          // SINGLE_LINE: treat the crop as one line of digits
           tessedit_pageseg_mode: PSM.SINGLE_LINE,
           debug_file: "/dev/null",
-          preserve_interword_spaces: "1",
+          preserve_interword_spaces: "0",
         }
       : {
           tessedit_char_whitelist: "0123456789,. kmKMODOodo",
@@ -214,6 +339,10 @@ async function setOdometerWorkerMode(mode: "live" | "final") {
         },
   );
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// FINAL-MODE CONSENSUS
+// ──────────────────────────────────────────────────────────────────────────
 
 function buildConsensusResult(
   candidates: OdometerOcrCandidate[],
@@ -282,11 +411,15 @@ function buildConsensusResult(
   };
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// IMAGE PREPROCESSING
+// ──────────────────────────────────────────────────────────────────────────
+
 async function preprocessOdometerImage(
   blob: Blob,
   crop: OdometerCrop,
   pass: OdometerOcrPass,
-) {
+): Promise<HTMLCanvasElement> {
   const bitmap = await createImageBitmap(blob);
   const source = getSourceCrop(bitmap.width, bitmap.height, crop, pass);
   const scale = Math.min(pass.maxWidth / source.width, 1);
@@ -316,15 +449,9 @@ async function preprocessOdometerImage(
   bitmap.close();
   applyImageProcessing(context, width, height, pass);
 
-  const processedBlob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob(resolve, "image/png");
-  });
-
-  if (!processedBlob) {
-    throw new Error("ODOMETER_OCR_PREPROCESS_FAILED");
-  }
-
-  return URL.createObjectURL(processedBlob);
+  // Return the canvas directly — callers pass it to worker.recognize()
+  // No Blob URL created here, so no revocation race condition.
+  return canvas;
 }
 
 function applyImageProcessing(
@@ -337,17 +464,29 @@ function applyImageProcessing(
   const data = imageData.data;
 
   for (let index = 0; index < data.length; index += 4) {
-    const gray = data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114;
-    const contrasted = clamp((gray - 128) * (pass.contrast ?? 1) + 128, 0, 255);
-    const value = pass.mode === "threshold"
-      ? contrasted > (pass.threshold ?? 145)
-        ? 255
-        : 0
-      : contrasted;
+    const r = data[index]!;
+    const g = data[index + 1]!;
+    const b = data[index + 2]!;
+    const gray = r * 0.299 + g * 0.587 + b * 0.114;
+
+    let value: number;
+
+    if (pass.mode === "invert") {
+      // Invert then contrast — converts bright-on-dark to dark-on-light
+      const inverted = 255 - gray;
+      value = clamp((inverted - 128) * (pass.contrast ?? 1.15) + 128, 0, 255);
+    } else if (pass.mode === "threshold") {
+      const contrasted = clamp((gray - 128) * (pass.contrast ?? 1) + 128, 0, 255);
+      value = contrasted > (pass.threshold ?? 145) ? 255 : 0;
+    } else {
+      // grayscale or contrast
+      value = clamp((gray - 128) * (pass.contrast ?? 1) + 128, 0, 255);
+    }
 
     data[index] = value;
     data[index + 1] = value;
     data[index + 2] = value;
+    // alpha unchanged
   }
 
   context.putImageData(imageData, 0, 0);
@@ -374,6 +513,52 @@ function getSourceCrop(
   };
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// DEV-ONLY: show the actual image sent to Tesseract as a small overlay
+// ──────────────────────────────────────────────────────────────────────────
+
+function showDebugPreview(dataUrl: string, passName: string) {
+  if (typeof document === "undefined") return;
+  const existingId = `ocr-debug-${passName}`;
+  const existing = document.getElementById(existingId);
+  if (existing) existing.remove();
+
+  const wrapper = document.createElement("div");
+  wrapper.id = existingId;
+  wrapper.style.cssText = [
+    "position:fixed",
+    "bottom:" + (passName.includes("invert") ? "140px" : "80px"),
+    "right:8px",
+    "z-index:99999",
+    "border:2px solid " + (passName.includes("invert") ? "#60a5fa" : "#fbbf24"),
+    "background:#000",
+    "font-size:9px",
+    "color:#fff",
+    "line-height:1.2",
+    "padding:2px 4px",
+    "border-radius:4px",
+    "pointer-events:none",
+  ].join(";");
+
+  const label = document.createElement("div");
+  label.textContent = passName;
+  wrapper.appendChild(label);
+
+  // dataURL — never revoked, always readable
+  const img = document.createElement("img");
+  img.src = dataUrl;
+  img.style.cssText = "display:block;max-width:180px;max-height:48px;object-fit:contain";
+  wrapper.appendChild(img);
+
+  document.body.appendChild(wrapper);
+  // Auto-remove after 3s so it doesn't accumulate
+  setTimeout(() => wrapper.remove(), 3000);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ──────────────────────────────────────────────────────────────────────────
+
 function normalizeOcrText(value: string) {
   return Array.from(value.normalize("NFKC"))
     .map((char) => {
@@ -387,17 +572,24 @@ function normalizeOcrText(value: string) {
     .join("");
 }
 
+/** Plausibility for FINAL mode (≥4 digits). */
 function isPlausibleReading(reading: string) {
   if (reading.length < minimumCandidateDigits || reading.length > 9) return false;
   if (/^0{2,}\d{3,}$/u.test(reading)) return false;
-
   const value = Number(reading);
   return Number.isInteger(value) && value >= 0 && value <= 2_147_483_647;
 }
 
+/** Plausibility for LIVE mode (≥3 digits, lenient). */
+function isLivePlausibleReading(reading: string) {
+  if (reading.length < liveMinimumDigits || reading.length > 8) return false;
+  if (/^0{3,}$/u.test(reading)) return false;
+  const value = Number(reading);
+  return Number.isInteger(value) && value >= 0 && value <= 9_999_999;
+}
+
 function dedupeCandidates(candidates: OdometerOcrCandidate[]) {
   const map = new Map<string, OdometerOcrCandidate>();
-
   for (const candidate of candidates) {
     const key = `${candidate.pass}:${candidate.reading}`;
     const existing = map.get(key);
@@ -405,7 +597,6 @@ function dedupeCandidates(candidates: OdometerOcrCandidate[]) {
       map.set(key, candidate);
     }
   }
-
   return Array.from(map.values());
 }
 

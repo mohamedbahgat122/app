@@ -174,9 +174,9 @@
     "usePhoto": "Use Photo",
     "previewAlt": "Odometer photo preview",
     "alignment": {
-      "hint": "Move the phone until the frame turns green",
-      "verifying": "Checking the odometer...",
-      "aligned": "Aligned correctly"
+      "hint": "Place the odometer number inside the frame",
+      "verifying": "Reading the number...",
+      "aligned": "Number detected"
     },
     "errors": {
       "insecure": "A secure HTTPS connection is required to use the camera",
