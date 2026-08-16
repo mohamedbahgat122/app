@@ -174,7 +174,7 @@
     "usePhoto": "Use Photo",
     "previewAlt": "Odometer photo preview",
     "alignment": {
-      "hint": "Place the odometer number inside the frame",
+      "hint": "Place the odometer number inside the frame until it turns green",
       "verifying": "Reading the number...",
       "aligned": "Number detected"
     },

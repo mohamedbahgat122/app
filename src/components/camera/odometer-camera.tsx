@@ -13,7 +13,7 @@ type CameraStatus = "idle" | "loading" | "ready" | "captured" | "error";
 // "idle"     = camera not yet started / no scan run yet
 // "scanning" = OCR in flight
 // "aligned"  = digit found
-type DetectionStatus = "idle" | "scanning" | "aligned";
+type DetectionStatus = "idle" | "aligned";
 
 type OdometerCameraProps = {
   onClose: () => void;
@@ -192,12 +192,12 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
         finalResult.reading !== liveOcrResult.reading
       ) {
         setLiveOcrResult(finalResult);
-        setDetectionStatus("scanning");
+        setDetectionStatus("idle");
         setErrorKey("finalVerificationFailed");
         return;
       }
     } catch {
-      setDetectionStatus("scanning");
+      setDetectionStatus("idle");
       setErrorKey("finalVerificationFailed");
       return;
     } finally {
@@ -252,8 +252,6 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
   // ── Alignment status label ────────────────────────────────────────────────
   function getAlignmentLabel(): string {
     if (detectionStatus === "aligned") return t("alignment.aligned");
-    if (detectionStatus === "scanning") return t("alignment.verifying");
-    // idle: prompt user to place the odometer in the frame
     return t("alignment.hint");
   }
 
@@ -390,9 +388,6 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     }
 
     liveOcrActiveRef.current = true;
-
-    // Show "scanning" only while OCR is actually running
-    setDetectionStatus("scanning");
 
     try {
       const blob = await captureScanBoxBlob(video, crop);
