@@ -28,39 +28,82 @@ type OdometerOcrPass = {
 };
 
 const minimumAcceptedConfidence = 55;
+const minimumLiveConfidence = 38;
 const minimumCandidateDigits = 4;
 const preferredMinimumDigits = 5;
 const preferredMaximumDigits = 8;
 const strongDisagreementRatio = 0.55;
 let workerPromise: Promise<import("tesseract.js").Worker> | null = null;
 
+const liveOcrPass: OdometerOcrPass = {
+  name: "live-grayscale",
+  cropPaddingX: 0,
+  cropPaddingY: 0,
+  maxWidth: 760,
+  mode: "grayscale",
+  contrast: 1.18,
+};
+
 const ocrPasses: OdometerOcrPass[] = [
   {
     name: "scan-grayscale",
-    cropPaddingX: 0,
-    cropPaddingY: 0,
+    cropPaddingX: 0.06,
+    cropPaddingY: 0.08,
     maxWidth: 1100,
     mode: "grayscale",
     contrast: 1.15,
   },
   {
     name: "scan-contrast",
-    cropPaddingX: 0,
-    cropPaddingY: 0,
+    cropPaddingX: 0.07,
+    cropPaddingY: 0.08,
     maxWidth: 1100,
     mode: "contrast",
     contrast: 1.55,
   },
   {
     name: "scan-threshold",
-    cropPaddingX: 0,
-    cropPaddingY: 0,
+    cropPaddingX: 0.08,
+    cropPaddingY: 0.1,
     maxWidth: 1200,
     mode: "threshold",
     contrast: 1.35,
     threshold: 138,
   },
 ];
+
+export async function readOdometerLiveDetection(
+  blob: Blob,
+  crop: OdometerCrop,
+): Promise<OdometerOcrResult> {
+  const worker = await getOdometerWorker();
+  const image = await preprocessOdometerImage(blob, crop, liveOcrPass);
+
+  try {
+    await setOdometerWorkerMode("live");
+    const { data } = await worker.recognize(image);
+    const candidates = extractOdometerReading(data.text, data.confidence, liveOcrPass.name)
+      .filter((candidate) => candidate.confidence >= minimumLiveConfidence)
+      .sort((a, b) => b.confidence - a.confidence || b.reading.length - a.reading.length);
+    const candidate = candidates[0] ?? null;
+
+    if (!candidate) {
+      return rejectedResult("no_candidate", data.text, candidates);
+    }
+
+    return {
+      reading: candidate.reading,
+      accepted: true,
+      confidence: candidate.confidence,
+      rawText: data.text,
+      candidates,
+      status: "accepted",
+      rejectionReason: null,
+    };
+  } finally {
+    URL.revokeObjectURL(image);
+  }
+}
 
 export async function readOdometerFromPhoto(
   blob: Blob,
@@ -74,6 +117,7 @@ export async function readOdometerFromPhoto(
     const image = await preprocessOdometerImage(blob, crop, pass);
 
     try {
+      await setOdometerWorkerMode("final");
       const { data } = await worker.recognize(image);
       rawTexts.push(`[${pass.name}] ${data.text}`);
       const extracted = extractOdometerReading(data.text, data.confidence, pass.name);
@@ -135,16 +179,40 @@ export function extractOdometerReading(
 async function getOdometerWorker() {
   workerPromise ??= (async () => {
     const { createWorker, PSM } = await import("tesseract.js");
-    const worker = await createWorker("eng");
+    const worker = await createWorker("eng", 1, {
+      logger: () => undefined,
+    });
     await worker.setParameters({
       tessedit_char_whitelist: "0123456789,. kmKMODOodo",
       tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+      debug_file: "/dev/null",
       preserve_interword_spaces: "1",
     });
     return worker;
   })();
 
   return workerPromise;
+}
+
+async function setOdometerWorkerMode(mode: "live" | "final") {
+  const { PSM } = await import("tesseract.js");
+  const worker = await getOdometerWorker();
+
+  await worker.setParameters(
+    mode === "live"
+      ? {
+          tessedit_char_whitelist: "0123456789,. ",
+          tessedit_pageseg_mode: PSM.SINGLE_LINE,
+          debug_file: "/dev/null",
+          preserve_interword_spaces: "1",
+        }
+      : {
+          tessedit_char_whitelist: "0123456789,. kmKMODOodo",
+          tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+          debug_file: "/dev/null",
+          preserve_interword_spaces: "1",
+        },
+  );
 }
 
 function buildConsensusResult(

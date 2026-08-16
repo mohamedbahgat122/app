@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
+  readOdometerLiveDetection,
   readOdometerFromPhoto,
   type OdometerOcrResult,
 } from "@/lib/odometer/ocr";
@@ -35,10 +36,12 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
   const streamRef = useRef<MediaStream | null>(null);
   const liveOcrActiveRef = useRef(false);
   const liveOcrRunRef = useRef(0);
+  const liveFailedScansRef = useRef(0);
   const [status, setStatus] = useState<CameraStatus>("idle");
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [detectionStatus, setDetectionStatus] = useState<DetectionStatus>("scanning");
   const [liveOcrResult, setLiveOcrResult] = useState<OdometerOcrResult | null>(null);
+  const [isLiveScanning, setIsLiveScanning] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [capture, setCapture] = useState<{
     blob: Blob;
@@ -73,6 +76,9 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
   async function openCamera() {
     setStatus("loading");
     setErrorKey(null);
+    setLiveOcrResult(null);
+    setDetectionStatus("scanning");
+    liveFailedScansRef.current = 0;
 
     if (!window.isSecureContext) {
       setErrorKey("insecure");
@@ -211,6 +217,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     setCapture(null);
     setLiveOcrResult(null);
     setDetectionStatus("scanning");
+    liveFailedScansRef.current = 0;
     setErrorKey(null);
     void openCamera();
   }
@@ -287,7 +294,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
               <div className="pointer-events-none absolute inset-x-6 top-[calc(50%+4.25rem)] rounded-xl bg-black/55 px-3 py-2 text-center text-xs font-semibold text-white">
                 {detectionStatus === "aligned"
                   ? t("alignment.aligned")
-                  : liveOcrActiveRef.current
+                  : isLiveScanning
                     ? t("alignment.verifying")
                     : t("alignment.hint")}
               </div>
@@ -362,10 +369,11 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     liveOcrActiveRef.current = true;
 
     try {
-      const blob = await captureScanBoxBlob(video, crop, 640, 0.72);
+      setIsLiveScanning(true);
+      const blob = await captureScanBoxBlob(video, crop, 760, 0.76, 0.06);
       if (!blob || runId !== liveOcrRunRef.current) return;
 
-      const result = await readOdometerFromPhoto(blob, {
+      const result = await readOdometerLiveDetection(blob, {
         x: 0,
         y: 0,
         width: 1,
@@ -374,16 +382,29 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
 
       if (runId !== liveOcrRunRef.current) return;
 
-      setLiveOcrResult(result);
-      setDetectionStatus(result.accepted ? "aligned" : "scanning");
+      if (result.accepted) {
+        liveFailedScansRef.current = 0;
+        setLiveOcrResult(result);
+        setDetectionStatus("aligned");
+      } else {
+        liveFailedScansRef.current += 1;
+        if (liveFailedScansRef.current >= 3) {
+          setLiveOcrResult(null);
+          setDetectionStatus("scanning");
+        }
+      }
       setErrorKey(null);
     } catch {
       if (runId === liveOcrRunRef.current) {
-        setLiveOcrResult(null);
-        setDetectionStatus("scanning");
+        liveFailedScansRef.current += 1;
+        if (liveFailedScansRef.current >= 3) {
+          setLiveOcrResult(null);
+          setDetectionStatus("scanning");
+        }
       }
     } finally {
       liveOcrActiveRef.current = false;
+      setIsLiveScanning(false);
     }
   }
 
@@ -424,11 +445,13 @@ async function captureScanBoxBlob(
   crop: OdometerCrop,
   maxWidth: number,
   quality: number,
+  paddingRatio = 0,
 ) {
-  const sourceX = Math.round(crop.x * video.videoWidth);
-  const sourceY = Math.round(crop.y * video.videoHeight);
-  const sourceWidth = Math.max(1, Math.round(crop.width * video.videoWidth));
-  const sourceHeight = Math.max(1, Math.round(crop.height * video.videoHeight));
+  const padded = expandCrop(crop, paddingRatio);
+  const sourceX = Math.round(padded.x * video.videoWidth);
+  const sourceY = Math.round(padded.y * video.videoHeight);
+  const sourceWidth = Math.max(1, Math.round(padded.width * video.videoWidth));
+  const sourceHeight = Math.max(1, Math.round(padded.height * video.videoHeight));
   const scale = Math.min(maxWidth / sourceWidth, 1);
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(sourceWidth * scale));
@@ -452,6 +475,24 @@ async function captureScanBoxBlob(
   return new Promise<Blob | null>((resolve) => {
     canvas.toBlob(resolve, "image/jpeg", quality);
   });
+}
+
+function expandCrop(crop: OdometerCrop, paddingRatio: number): OdometerCrop {
+  if (paddingRatio <= 0) return crop;
+
+  const paddingX = crop.width * paddingRatio;
+  const paddingY = crop.height * paddingRatio;
+  const x = clamp01(crop.x - paddingX);
+  const y = clamp01(crop.y - paddingY);
+  const right = clamp01(crop.x + crop.width + paddingX);
+  const bottom = clamp01(crop.y + crop.height + paddingY);
+
+  return {
+    x,
+    y,
+    width: Math.max(0.01, right - x),
+    height: Math.max(0.01, bottom - y),
+  };
 }
 
 function clamp01(value: number) {
