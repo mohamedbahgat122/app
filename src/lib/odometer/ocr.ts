@@ -25,50 +25,54 @@ type OdometerOcrPass = {
   cropPaddingX: number;
   cropPaddingY: number;
   maxWidth: number;
-  mode: "grayscale" | "contrast" | "threshold" | "invert";
+  mode: "grayscale" | "contrast" | "threshold" | "invert" | "original";
   threshold?: number;
   contrast?: number;
 };
 
-// ── Final OCR thresholds ──────────────────────────────────────────────────
-const minimumAcceptedConfidence = 52;
+// ── Final OCR thresholds (Strict Exact Consensus) ──────────────────────────
 const minimumCandidateDigits = 4;
-const preferredMinimumDigits = 5;
-const preferredMaximumDigits = 9;
 
 // ── Shared worker (created once, reused across scans) ──────────────────────
 let workerPromise: Promise<import("tesseract.js").Worker> | null = null;
 
-// ── Final OCR passes (4 variants for all display types & colors) ───────────
+// ── 5 Tight Preprocessing Passes centered on ODO strip ────────────────────
 const ocrPasses: OdometerOcrPass[] = [
   {
+    name: "scan-original",
+    cropPaddingX: 0.0,
+    cropPaddingY: 0.0,
+    maxWidth: 1200,
+    mode: "original",
+  },
+  {
     name: "scan-grayscale",
-    cropPaddingX: 0.05,
-    cropPaddingY: 0.06,
+    cropPaddingX: 0.0,
+    cropPaddingY: 0.0,
     maxWidth: 1200,
     mode: "grayscale",
     contrast: 1.15,
   },
   {
     name: "scan-invert",
-    cropPaddingX: 0.05,
-    cropPaddingY: 0.06,
+    cropPaddingX: 0.0,
+    cropPaddingY: 0.0,
     maxWidth: 1200,
     mode: "invert",
     contrast: 1.2,
   },
   {
     name: "scan-contrast",
-    cropPaddingX: 0.06,
-    cropPaddingY: 0.06,
+    cropPaddingX: 0.01,
+    cropPaddingY: 0.01,
     maxWidth: 1200,
     mode: "contrast",
     contrast: 1.55,
   },
   {
     name: "scan-threshold",
-    cropPaddingX: 0.06,
-    cropPaddingY: 0.06,
+    cropPaddingX: 0.01,
+    cropPaddingY: 0.01,
     maxWidth: 1200,
     mode: "threshold",
     contrast: 1.35,
@@ -81,8 +85,11 @@ const ocrPasses: OdometerOcrPass[] = [
 // ──────────────────────────────────────────────────────────────────────────
 
 /**
- * FINAL MODE — strict multi-pass OCR on captured still photo.
- * Always runs ALL passes to find the full Total Odometer reading.
+ * FINAL MODE — Strict multi-pass OCR on captured photo.
+ *
+ * Runs 5 tight ROI passes. Accepts ONLY IF exact same reading appears in
+ * >= 2 passes OR an explicit ODO anchor reading is supported by 2 passes.
+ * NO guessing, NO partial prefix expansion, NO false value acceptance.
  */
 export async function readOdometerFromPhoto(
   blob: Blob,
@@ -110,7 +117,7 @@ export async function terminateOdometerOcrWorker() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// CANDIDATE EXTRACTION — ODO ANCHORS & TOTAL ODOMETER PRIORITY
+// CANDIDATE EXTRACTION — ODO ANCHORS & DIRECT READINGS ONLY
 // ──────────────────────────────────────────────────────────────────────────
 
 export function extractOdometerReading(
@@ -121,14 +128,14 @@ export function extractOdometerReading(
   const normalized = normalizeOcrText(ocrText);
   const candidates: OdometerOcrCandidate[] = [];
 
-  // PASS A: Check for explicit ODO / ODOMETER / TOTAL anchors first
+  // 1. Context Pass: Check for explicit ODO / ODOMETER / TOTAL anchors
   const anchorRegex = /(?:odo|od0|0do|odometer|total)\s*[:=]?\s*(\d{4,9})/giu;
   for (const match of normalized.matchAll(anchorRegex)) {
     const reading = match[1]!.replace(/[^\d]/g, "");
     if (isPlausibleReading(reading)) {
       candidates.push({
         reading,
-        confidence: clamp(Math.round(confidence + 50), 0, 100),
+        confidence: clamp(Math.round(confidence + 40), 0, 100),
         pass,
         rawText: ocrText,
         isOdoAnchored: true,
@@ -136,7 +143,7 @@ export function extractOdometerReading(
     }
   }
 
-  // PASS B: General digit extraction
+  // 2. Numeric Pass: Match plain digit sequences 4 to 9 digits
   const patterns = [
     /(?<!\d)(?:\d{1,3}(?:[\s,.]\d{3}){1,3})(?!\d)/gu,
     /(?<!\d)\d{4,9}(?!\d)/gu,
@@ -150,28 +157,14 @@ export function extractOdometerReading(
 
       const before = normalized.slice(Math.max(0, match.index - 14), match.index);
       const after = normalized.slice(match.index + raw.length, match.index + raw.length + 14);
-      let score = confidence;
 
-      // Bonus for ODO / km context
-      if (hasOdometerContext(before, after)) score += 20;
-
-      // Bonus for preferred odometer digit length (5-8 digits)
-      if (reading.length >= preferredMinimumDigits && reading.length <= preferredMaximumDigits) {
-        score += 20;
-      }
-
-      // Penalize leading zeros
-      if (/^0{2,}\d{3,}$/u.test(reading)) score -= 40;
-
-      // Penalize clock / temperature / trip decimals
-      if (looksLikeClockOrTemperature(raw, before, after)) score -= 50;
-
-      // Penalize speed (km/h)
-      if (looksLikeSpeed(raw, before, after)) score -= 45;
+      // Exclude clock / temp / speed
+      if (looksLikeClockOrTemperature(raw, before, after)) continue;
+      if (looksLikeSpeed(raw, before, after)) continue;
 
       candidates.push({
         reading,
-        confidence: clamp(Math.round(score), 0, 100),
+        confidence: clamp(Math.round(confidence), 0, 100),
         pass,
         rawText: ocrText,
         isOdoAnchored: false,
@@ -205,10 +198,10 @@ async function getOdometerWorker() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// FINAL CONSENSUS & PARTIAL PREFIX RESOLUTION
+// STRICT EXACT CONSENSUS ENGINE
 // ──────────────────────────────────────────────────────────────────────────
 
-function buildConsensusResult(
+export function buildConsensusResult(
   candidates: OdometerOcrCandidate[],
   rawText: string,
 ): OdometerOcrResult {
@@ -216,118 +209,82 @@ function buildConsensusResult(
     return rejectedResult("no_candidate", rawText, []);
   }
 
-  // Filter out candidates with zero or negative confidence
-  let pool = dedupeCandidates(candidates).filter((c) => c.confidence >= 25);
-  if (pool.length === 0) {
-    return rejectedResult("no_candidate", rawText, []);
+  // Find explicit ODO anchor readings
+  const odoAnchoredCandidates = candidates.filter((c) => c.isOdoAnchored && c.reading);
+  const odoAnchorReadings = Array.from(new Set(odoAnchoredCandidates.map((c) => c.reading)));
+
+  // Count exact pass occurrences per reading
+  const readingPassMap = new Map<string, Set<string>>();
+  const readingConfMap = new Map<string, number[]>();
+
+  for (const c of candidates) {
+    if (!c.reading) continue;
+    if (!readingPassMap.has(c.reading)) {
+      readingPassMap.set(c.reading, new Set());
+      readingConfMap.set(c.reading, []);
+    }
+    readingPassMap.get(c.reading)!.add(c.pass);
+    readingConfMap.get(c.reading)!.push(c.confidence);
   }
 
-  // RESOLVE PARTIAL PREFIXES:
-  // If candidate A (e.g. "2802") is a prefix of candidate B (e.g. "280210"),
-  // candidate B is the full reading. Penalize partial prefix candidate A.
-  const allReadings = Array.from(new Set(pool.map((c) => c.reading)));
-  const prefixSet = new Set<string>();
+  const multiPassReadings = Array.from(readingPassMap.entries())
+    .filter(([_, passes]) => passes.size >= 2)
+    .map(([reading]) => reading);
 
-  for (const shortRead of allReadings) {
-    for (const longRead of allReadings) {
-      if (
-        shortRead !== longRead &&
-        longRead.length > shortRead.length &&
-        longRead.startsWith(shortRead)
-      ) {
-        prefixSet.add(shortRead);
+  let verifiedReading: string | null = null;
+  let verifiedConfidence = 0;
+
+  // RULE 1: If an explicit ODO anchor reading exists (e.g. ODO 598669)
+  if (odoAnchorReadings.length > 0) {
+    const anchorReading = odoAnchorReadings[0]!;
+    const passesForAnchor = readingPassMap.get(anchorReading)?.size ?? 0;
+
+    // Must be supported by at least 2 passes total (context pass + 1 pass)
+    if (passesForAnchor >= 2 || odoAnchoredCandidates.length >= 2) {
+      verifiedReading = anchorReading;
+      verifiedConfidence = average(readingConfMap.get(anchorReading) ?? [80]);
+    } else {
+      // ODO anchor exists but disagrees or lacks 2nd pass support -> REJECT
+      return rejectedResult("conflict", rawText, candidates);
+    }
+  } else {
+    // RULE 2: No ODO anchor. Exact same full reading MUST appear in >= 2 passes
+    if (multiPassReadings.length === 1) {
+      verifiedReading = multiPassReadings[0]!;
+      verifiedConfidence = average(readingConfMap.get(verifiedReading) ?? [70]);
+    } else if (multiPassReadings.length > 1) {
+      // Handle prefix/suffix overlap (e.g. 598669 vs 59866)
+      const sortedByLength = [...multiPassReadings].sort((a, b) => b.length - a.length);
+      const longest = sortedByLength[0]!;
+      const secondLongest = sortedByLength[1]!;
+
+      if (longest.includes(secondLongest) || secondLongest.includes(longest)) {
+        verifiedReading = longest;
+        verifiedConfidence = average(readingConfMap.get(longest) ?? [70]);
+      } else {
+        // Conflicting distinct numbers (e.g. 598669 vs 80140) -> REJECT
+        return rejectedResult("conflict", rawText, candidates);
       }
     }
   }
 
-  // Demote partial prefix candidates
-  pool = pool.map((c) => {
-    if (prefixSet.has(c.reading)) {
-      return { ...c, confidence: Math.max(0, c.confidence - 50) };
-    }
-    return c;
-  }).filter((c) => c.confidence >= 20);
-
-  if (pool.length === 0) {
-    return rejectedResult("no_candidate", rawText, []);
-  }
-
-  // Group by reading
-  const groups = new Map<string, OdometerOcrCandidate[]>();
-  for (const candidate of pool) {
-    groups.set(candidate.reading, [...(groups.get(candidate.reading) ?? []), candidate]);
-  }
-
-  const rankedGroups = Array.from(groups.entries())
-    .map(([reading, group]) => {
-      const hasAnchor = group.some((c) => c.isOdoAnchored);
-      const passCount = new Set(group.map((c) => c.pass)).size;
-      const avgConf = average(group.map((c) => c.confidence));
-      const maxConf = Math.max(...group.map((c) => c.confidence));
-
-      // Extra weight for ODO anchored readings & multi-pass agreement
-      let score = avgConf + (hasAnchor ? 30 : 0) + (passCount >= 2 ? 25 : 0);
-      if (reading.length >= preferredMinimumDigits) score += 10;
-
-      return {
-        reading,
-        group,
-        hasAnchor,
-        passCount,
-        averageConfidence: avgConf,
-        bestConfidence: maxConf,
-        score,
-      };
-    })
-    .sort((a, b) => b.score - a.score || b.passCount - a.passCount || b.reading.length - a.reading.length);
-
-  const best = rankedGroups[0];
-  const second = rankedGroups[1];
-
-  if (!best) {
-    return rejectedResult("no_candidate", rawText, pool);
-  }
-
-  // STRICT VERIFICATION EVIDENCE:
-  // Accept ONLY IF:
-  // 1. Has explicit ODO anchor with maxConf >= 45, OR
-  // 2. Appeared in at least 2 passes with avgConf >= 48, OR
-  // 3. Long digit sequence (>=5 digits) with maxConf >= 65
-  const isAccepted =
-    best.hasAnchor ||
-    best.passCount >= 2 ||
-    (best.reading.length >= preferredMinimumDigits && best.bestConfidence >= 65);
-
-  if (!isAccepted) {
-    return rejectedResult("low_confidence", rawText, pool);
-  }
-
-  // Check for strong un-resolvable conflict
-  if (
-    second &&
-    !best.hasAnchor &&
-    second.passCount >= 2 &&
-    second.bestConfidence >= best.bestConfidence * 0.85 &&
-    second.reading !== best.reading &&
-    !best.reading.startsWith(second.reading) &&
-    !second.reading.startsWith(best.reading)
-  ) {
-    return rejectedResult("conflict", rawText, pool);
+  if (!verifiedReading) {
+    return rejectedResult("low_confidence", rawText, candidates);
   }
 
   return {
-    reading: best.reading,
+    reading: verifiedReading,
     accepted: true,
-    confidence: clamp(Math.round(best.averageConfidence), 0, 100),
+    confidence: clamp(Math.round(verifiedConfidence), 0, 100),
     rawText,
-    candidates: pool,
+    candidates,
     status: "accepted",
     rejectionReason: null,
   };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// IMAGE PREPROCESSING
+// IMAGE PREPROCESSING (Tight ROI Crop)
 // ──────────────────────────────────────────────────────────────────────────
 
 async function preprocessOdometerImage(
@@ -390,8 +347,10 @@ function applyImageProcessing(
     } else if (pass.mode === "threshold") {
       const contrasted = clamp((gray - 128) * (pass.contrast ?? 1) + 128, 0, 255);
       value = contrasted > (pass.threshold ?? 145) ? 255 : 0;
-    } else {
+    } else if (pass.mode === "contrast") {
       value = clamp((gray - 128) * (pass.contrast ?? 1) + 128, 0, 255);
+    } else {
+      value = clamp(gray, 0, 255);
     }
 
     data[index] = value;
@@ -430,7 +389,7 @@ function getSourceCrop(
 function normalizeOcrText(value: string) {
   return Array.from(value.normalize("NFKC"))
     .map((char) => {
-      const eastern = "٠١٢٣٥٦٧٨٩".indexOf(char);
+      const eastern = "٠١٢٣٤٥٦٧٨٩".indexOf(char);
       if (eastern >= 0) return String(eastern);
       const persian = "۰۱۲۳۴۵۶۷۸۹".indexOf(char);
       if (persian >= 0) return String(persian);
@@ -473,11 +432,6 @@ function rejectedResult(
     status: "rejected",
     rejectionReason: reason,
   };
-}
-
-function hasOdometerContext(before: string, after: string) {
-  return /(odo|od0|0do|odometer|total|km|كلم|كم)\s*$/iu.test(before.trim()) ||
-    /^\s*(km|odo|od0|0do|odometer|total|كلم|كم)/iu.test(after.trim());
 }
 
 function looksLikeClockOrTemperature(raw: string, before: string, after: string) {
