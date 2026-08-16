@@ -1,4 +1,5 @@
 import type { OdometerCrop } from "@/components/camera/odometer-camera";
+import { OCR_DEBUG } from "@/lib/odometer/ocr-debug-flag";
 
 export type OdometerOcrCandidate = {
   reading: string;
@@ -41,9 +42,6 @@ const strongDisagreementRatio = 0.55;
 const liveMinimumDigits = 3;
 /** Accept if raw Tesseract confidence ≥ this value */
 const minimumLiveConfidence = 15;
-
-// ── Dev-only debug flag ────────────────────────────────────────────────────
-const IS_DEV = process.env.NODE_ENV === "development";
 
 // ── Shared worker (created once, reused across scans) ──────────────────────
 let workerPromise: Promise<import("tesseract.js").Worker> | null = null;
@@ -128,7 +126,7 @@ export async function readOdometerLiveDetection(
 
     passResults[pass.name] = rawText.trim();
 
-    if (IS_DEV) {
+    if (OCR_DEBUG) {
       // dataURL for debug preview — independent of OCR, never revoked
       const dataUrl = canvas.toDataURL("image/png");
       showDebugPreview(dataUrl, pass.name);
@@ -141,7 +139,7 @@ export async function readOdometerLiveDetection(
 
     if (candidates.length > 0) {
       const best = candidates[0]!;
-      if (IS_DEV) {
+      if (OCR_DEBUG) {
         console.log(
           `[OCR] FOUND via ${pass.name}: "${best.reading}" conf=${best.confidence} accepted=true`,
         );
@@ -154,12 +152,12 @@ export async function readOdometerLiveDetection(
         candidates,
         status: "accepted",
         rejectionReason: null,
-        _debugPasses: IS_DEV ? { ...passResults } : undefined,
+        _debugPasses: OCR_DEBUG ? { ...passResults } : undefined,
       };
     }
   }
 
-  if (IS_DEV) {
+  if (OCR_DEBUG) {
     console.log(
       `[OCR] No candidate. passes: ${JSON.stringify(passResults)}`,
     );
@@ -167,7 +165,7 @@ export async function readOdometerLiveDetection(
 
   return {
     ...rejectedResult("no_candidate", "", []),
-    _debugPasses: IS_DEV ? passResults : undefined,
+    _debugPasses: OCR_DEBUG ? passResults : undefined,
   };
 }
 
@@ -514,7 +512,7 @@ function getSourceCrop(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// DEV-ONLY: show the actual image sent to Tesseract as a small overlay
+// OCR_DEBUG: show the actual image sent to Tesseract as a small overlay
 // ──────────────────────────────────────────────────────────────────────────
 
 function showDebugPreview(dataUrl: string, passName: string) {

@@ -7,8 +7,7 @@ import {
   readOdometerFromPhoto,
   type OdometerOcrResult,
 } from "@/lib/odometer/ocr";
-
-const IS_DEV = process.env.NODE_ENV === "development";
+import { OCR_DEBUG } from "@/lib/odometer/ocr-debug-flag";
 
 type CameraStatus = "idle" | "loading" | "ready" | "captured" | "error";
 // "idle"     = camera not yet started / no scan run yet
@@ -309,14 +308,14 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
               </div>
 
               {/* DEV-ONLY crop info banner */}
-              {IS_DEV && devCropInfo ? (
+              {OCR_DEBUG && devCropInfo ? (
                 <div className="pointer-events-none absolute inset-x-0 top-0 bg-black/70 px-2 py-1 text-center font-mono text-[9px] text-green-300">
                   {devCropInfo}
                 </div>
               ) : null}
 
               {/* DEV-ONLY OCR result panel */}
-              {IS_DEV && devOcrPanel ? (
+              {OCR_DEBUG && devOcrPanel ? (
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/80 px-2 py-1 font-mono text-[9px] text-yellow-200 whitespace-pre">
                   {devOcrPanel}
                 </div>
@@ -400,7 +399,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
       if (!blob || runId !== liveOcrRunRef.current) return;
 
       // Dev: show dimensions
-      if (IS_DEV) {
+      if (OCR_DEBUG) {
         const vw = video.videoWidth;
         const vh = video.videoHeight;
         const vrect = video.getBoundingClientRect();
@@ -418,7 +417,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
 
       if (runId !== liveOcrRunRef.current) return;
 
-      if (IS_DEV) {
+      if (OCR_DEBUG) {
         const passes = result._debugPasses ?? {};
         const normalText = passes["live-normal"] ?? "";
         const invertText = passes["live-invert"] ?? "";
