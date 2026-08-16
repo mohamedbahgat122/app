@@ -19,6 +19,7 @@ type OdometerCameraProps = {
     capturedAt: string,
     previewUrl: string,
     crop: OdometerCrop,
+    reading?: string,
   ) => void;
 };
 
@@ -38,6 +39,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
   const liveRunRef = useRef(0);
   const analyzerRef = useRef<LiveFrameAnalyzer | null>(null);
   const autoCaptureTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoCaptureLockedRef = useRef(false);
 
   const [status, setStatus] = useState<CameraStatus>("idle");
   const [errorKey, setErrorKey] = useState<string | null>(null);
@@ -48,6 +50,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     capturedAt: string;
     url: string;
     crop: OdometerCrop;
+    reading: string;
   } | null>(null);
 
   // Dev-only debug info
@@ -89,6 +92,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     setStatus("loading");
     setErrorKey(null);
     setDetectionStatus("idle");
+    autoCaptureLockedRef.current = false;
     analyzerRef.current?.reset();
 
     if (!window.isSecureContext) {
@@ -142,12 +146,19 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     }
   }
 
+  /**
+   * Freeze the video frame onto a single high-res canvas.
+   *
+   * Both the saved image Blob AND the final OCR reading are derived
+   * from this EXACT SAME canvas frame.
+   */
   async function captureFrame() {
     const video = videoRef.current;
 
     if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
       setErrorKey("captureFailed");
       setStatus("error");
+      autoCaptureLockedRef.current = false;
       return;
     }
 
@@ -160,6 +171,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     if (!context) {
       setErrorKey("captureFailed");
       setStatus("error");
+      autoCaptureLockedRef.current = false;
       return;
     }
 
@@ -168,18 +180,20 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     if (!crop) {
       setErrorKey("captureFailed");
       setStatus("error");
+      autoCaptureLockedRef.current = false;
       return;
     }
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, "image/jpeg", 0.85);
+      canvas.toBlob(resolve, "image/jpeg", 0.88);
     });
 
     if (!blob) {
       setErrorKey("captureFailed");
       setStatus("error");
+      autoCaptureLockedRef.current = false;
       return;
     }
 
@@ -188,27 +202,38 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     setErrorKey(null);
 
     try {
+      // Execute Final Multi-pass OCR directly on the captured still frame
       const finalResult = await readOdometerFromPhoto(blob, crop);
 
       if (!finalResult.accepted || !finalResult.reading) {
+        // Final OCR rejected reading: Unlock and return to camera search
         setDetectionStatus("idle");
         setErrorKey("finalVerificationFailed");
+        autoCaptureLockedRef.current = false;
         analyzerRef.current?.reset();
         return;
       }
 
-      // Success! Final OCR accepted reading
+      // Success! Final OCR verified reading on saved frame
+      const capturedAt = new Date().toISOString();
+      const previewUrl = URL.createObjectURL(blob);
+
       stopCamera();
       setCapture({
         blob,
-        capturedAt: new Date().toISOString(),
-        url: URL.createObjectURL(blob),
+        capturedAt,
+        url: previewUrl,
         crop,
+        reading: finalResult.reading,
       });
       setStatus("captured");
+
+      // Auto-pass verified result to parent component
+      onUsePhoto(blob, capturedAt, previewUrl, crop, finalResult.reading);
     } catch {
       setDetectionStatus("idle");
       setErrorKey("finalVerificationFailed");
+      autoCaptureLockedRef.current = false;
       analyzerRef.current?.reset();
     } finally {
       setIsFinalizing(false);
@@ -222,6 +247,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     setCapture(null);
     setDetectionStatus("idle");
     setErrorKey(null);
+    autoCaptureLockedRef.current = false;
     void openCamera();
   }
 
@@ -232,14 +258,14 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     onClose();
   }
 
-  // ── Visual-only Live Frame Analysis Loop (NO Tesseract in live loop) ────────
+  // ── Simplified Live Detection Loop (runs every 100ms) ──────────────────────
   useEffect(() => {
     if (status !== "ready") return;
 
     const runId = ++liveRunRef.current;
     const interval = window.setInterval(() => {
       runLiveFrameAnalysis(runId);
-    }, 120);
+    }, 100);
 
     return () => {
       window.clearInterval(interval);
@@ -254,6 +280,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
       runId !== liveRunRef.current ||
       status !== "ready" ||
       isFinalizing ||
+      autoCaptureLockedRef.current ||
       !video ||
       !analyzerRef.current
     ) {
@@ -276,28 +303,22 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
         `video: ${video.videoWidth}×${video.videoHeight} | crop: x=${crop.x.toFixed(2)} y=${crop.y.toFixed(2)}`,
       );
       setDevOcrPanel(
-        `LIVE VISUAL:\ncontent=${analysis.hasDigitContent} | stable=${analysis.isStable} | ready=${analysis.isReadyForCapture}\ncontrast=${analysis.contrast} | edgeDensity=${analysis.edgeDensity}% | motionDiff=${analysis.motionDiff}`,
+        `LIVE VISUAL:\ncontent=${analysis.hasDigitContent} | stable=${analysis.isStable} | ready=${analysis.isReadyForCapture}\ncontrast=${analysis.contrast} | edgeDensity=${analysis.edgeDensity}%`,
       );
     }
 
     if (analysis.isReadyForCapture) {
-      if (detectionStatus !== "aligned" && detectionStatus !== "capturing") {
-        setDetectionStatus("aligned");
-      }
+      // ONE-SHOT LATCH: lock immediately once digit content is detected!
+      autoCaptureLockedRef.current = true;
+      setDetectionStatus("aligned");
 
-      // Schedule auto-capture after ~350ms of continuous stability
+      // Auto-trigger capture after 180ms fast delay
       if (!autoCaptureTimerRef.current && !isFinalizing) {
         autoCaptureTimerRef.current = setTimeout(() => {
           autoCaptureTimerRef.current = null;
           setDetectionStatus("capturing");
           void captureFrame();
-        }, 350);
-      }
-    } else {
-      // Lost alignment / moved
-      clearAutoCaptureTimer();
-      if (detectionStatus === "aligned" && !isFinalizing) {
-        setDetectionStatus("idle");
+        }, 180);
       }
     }
   }
@@ -311,83 +332,93 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex min-h-dvh items-center justify-center bg-navy/95 p-4 text-white">
-      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-[430px] flex-col overflow-hidden rounded-[1rem] bg-navy shadow-2xl">
-        <div className="flex items-center justify-between gap-3 border-b border-white/10 p-3">
-          <p className="text-sm font-semibold">{t("title")}</p>
+      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-[430px] flex-col overflow-hidden rounded-[1.25rem] bg-navy shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 border-b border-white/10 p-3.5">
+          <p className="text-sm font-bold text-white">{t("title")}</p>
           <button
             type="button"
             onClick={close}
-            className="flex size-11 items-center justify-center rounded-lg bg-white/10 text-xl font-semibold [touch-action:manipulation] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="flex size-10 items-center justify-center rounded-lg bg-white/10 text-lg font-semibold [touch-action:manipulation] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
             aria-label={t("close")}
           >
             ×
           </button>
         </div>
 
-        <div className="relative min-h-[320px] bg-black">
-          {status === "captured" && capture ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={capture.url} alt={t("previewAlt")} className="h-full max-h-[60dvh] w-full object-contain" />
-          ) : (
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              playsInline
-              className="h-full max-h-[60dvh] min-h-[320px] w-full object-cover"
-            />
-          )}
+        {/* Compact Horizontal Odometer Camera Strip Viewport */}
+        <div className="relative bg-black p-3">
+          <div className="relative w-full aspect-[3.2/1] overflow-hidden rounded-xl bg-black border-2 border-white/20">
+            {status === "captured" && capture ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={capture.url} alt={t("previewAlt")} className="h-full w-full object-cover" />
+            ) : (
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                className="h-full w-full object-cover"
+              />
+            )}
 
+            {status === "ready" ? (
+              <>
+                {/* Guide Frame Overlay matching the strip exactly */}
+                <div
+                  ref={guideRef}
+                  className={[
+                    "pointer-events-none absolute inset-1.5 rounded-lg border-[3px] transition-colors duration-150",
+                    detectionStatus === "aligned" || detectionStatus === "capturing"
+                      ? "border-emerald-400 shadow-[0_0_20px_rgba(52,211,153,0.5)]"
+                      : "border-amber-300",
+                  ].join(" ")}
+                >
+                  {detectionStatus === "aligned" || detectionStatus === "capturing" ? (
+                    <span className="absolute -top-3 end-2 flex size-6 items-center justify-center rounded-full bg-emerald-400 text-xs font-black text-navy shadow-md">
+                      ✓
+                    </span>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+
+            {status === "loading" ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-xs font-semibold text-white">
+                {t("loading")}
+              </div>
+            ) : null}
+
+            {status === "error" ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/85 px-4 text-center text-xs font-semibold leading-5 text-amber-200">
+                {t(`errors.${errorKey ?? "unavailable"}`)}
+              </div>
+            ) : null}
+          </div>
+
+          {/* Status Label Banner under strip */}
           {status === "ready" ? (
-            <>
-              <div
-                ref={guideRef}
-                className={[
-                  "pointer-events-none absolute inset-x-6 top-1/2 h-24 -translate-y-1/2 rounded-xl border-[3px] shadow-[0_0_0_999px_rgba(0,0,0,0.42)] transition-colors duration-200",
-                  detectionStatus === "aligned" || detectionStatus === "capturing"
-                    ? "border-emerald-400 shadow-[0_0_0_999px_rgba(0,0,0,0.34),0_0_28px_rgba(52,211,153,0.38)]"
-                    : "border-amber-300",
-                ].join(" ")}
-              >
-                {detectionStatus === "aligned" || detectionStatus === "capturing" ? (
-                  <span className="absolute -top-4 end-4 flex size-8 items-center justify-center rounded-full bg-emerald-400 text-base font-black text-navy shadow-lg">
-                    ✓
-                  </span>
-                ) : null}
-              </div>
-              <div className="pointer-events-none absolute inset-x-6 top-[calc(50%+4.25rem)] rounded-xl bg-black/55 px-3 py-2 text-center text-xs font-semibold text-white">
-                {getAlignmentLabel()}
-              </div>
-
-              {OCR_DEBUG && devCropInfo ? (
-                <div className="pointer-events-none absolute inset-x-0 top-0 bg-black/70 px-2 py-1 text-center font-mono text-[9px] text-green-300">
-                  {devCropInfo}
-                </div>
-              ) : null}
-
-              {OCR_DEBUG && devOcrPanel ? (
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/80 px-2 py-1 font-mono text-[9px] text-yellow-200 whitespace-pre">
-                  {devOcrPanel}
-                </div>
-              ) : null}
-            </>
-          ) : null}
-
-          {status === "loading" ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-sm font-semibold">
-              {t("loading")}
+            <div className="mt-2.5 rounded-lg bg-white/10 px-3 py-2 text-center text-xs font-bold text-white shadow-inner">
+              {getAlignmentLabel()}
             </div>
           ) : null}
 
-          {status === "error" ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/80 px-6 text-center text-sm font-semibold leading-6">
-              {t(`errors.${errorKey ?? "unavailable"}`)}
+          {OCR_DEBUG && devCropInfo ? (
+            <div className="pointer-events-none absolute inset-x-0 top-0 bg-black/80 px-2 py-0.5 text-center font-mono text-[9px] text-green-300">
+              {devCropInfo}
+            </div>
+          ) : null}
+
+          {OCR_DEBUG && devOcrPanel ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/85 px-2 py-0.5 font-mono text-[9px] text-yellow-200 whitespace-pre">
+              {devOcrPanel}
             </div>
           ) : null}
         </div>
 
+        {/* Footer controls */}
         <div className="space-y-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <p className="text-center text-sm font-medium text-white/76">
+          <p className="text-center text-xs font-medium text-white/80">
             {t("instruction")}
           </p>
 
@@ -398,7 +429,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
               </button>
               <button
                 type="button"
-                onClick={() => onUsePhoto(capture.blob, capture.capturedAt, capture.url, capture.crop)}
+                onClick={() => onUsePhoto(capture.blob, capture.capturedAt, capture.url, capture.crop, capture.reading)}
                 className="min-h-12 rounded-[0.85rem] bg-primary px-4 text-sm font-semibold [touch-action:manipulation]"
               >
                 {t("usePhoto")}
@@ -415,7 +446,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
             </button>
           )}
           {status === "ready" && errorKey ? (
-            <p role="alert" className="text-center text-sm font-semibold text-amber-200">
+            <p role="alert" className="text-center text-xs font-semibold text-amber-200">
               {t(`errors.${errorKey}`)}
             </p>
           ) : null}

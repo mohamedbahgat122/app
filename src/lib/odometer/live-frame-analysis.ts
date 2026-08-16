@@ -1,18 +1,18 @@
 /**
- * Visual-only live frame analyzer for camera odometer scanning.
+ * Ultra-fast, visual-only live frame analyzer for camera odometer scanning.
  *
- * Performs downsampled canvas ROI processing (contrast, edge density, vertical strokes)
- * and frame-to-frame motion stability tracking.
+ * Checks for digit/text-like contrast and edge structure inside the scan strip.
+ * Requires minimal stability (1-2 fast frames) for instant auto-capture.
  *
  * NO Tesseract / OCR calls are executed here.
  */
 
 export type FrameAnalysisResult = {
-  /** True if contrast, vertical edges, and pixel structure resemble digits */
+  /** True if contrast and pixel structure resemble digits/text */
   hasDigitContent: boolean;
-  /** True if ROI has remained still across consecutive frames */
+  /** True if frame is sufficiently still */
   isStable: boolean;
-  /** True when both digit content is present and frame is stable */
+  /** True when ready for instant auto-capture */
   isReadyForCapture: boolean;
   /** Metrics for debug UI */
   contrast: number;
@@ -22,9 +22,9 @@ export type FrameAnalysisResult = {
 
 export class LiveFrameAnalyzer {
   private history: Uint8Array[] = [];
-  private historyCapacity = 4;
+  private historyCapacity = 3;
   private stableCount = 0;
-  private requiredStableFrames = 3; // ~3-4 consecutive stable checks (~300-500ms)
+  private requiredStableFrames = 1; // Instant ready on first/second clear detection
 
   private canvas: HTMLCanvasElement | null = null;
   private ctx: CanvasRenderingContext2D | null = null;
@@ -92,9 +92,8 @@ export class LiveFrameAnalyzer {
 
     const contrast = maxLum - minLum; // 0..255
 
-    // 1. Edge & Vertical Stroke Analysis
+    // Fast Edge Gradient Analysis
     let highEdgeCount = 0;
-    let verticalTransitions = 0;
     const w = this.sampleWidth;
     const h = this.sampleHeight;
 
@@ -105,28 +104,20 @@ export class LiveFrameAnalyzer {
         const dy = Math.abs(gray[idx + w]! - gray[idx - w]!);
         const grad = dx + dy;
 
-        if (grad >= 28) {
+        if (grad >= 22) {
           highEdgeCount++;
-        }
-        if (dx >= 32) {
-          verticalTransitions++;
         }
       }
     }
 
     const edgeDensityRatio = highEdgeCount / len; // 0..1
 
-    // Digit-like ROI features:
-    // - Adequate contrast (>= 32)
-    // - Moderate edge density (3.5% to 50%)
-    // - Significant vertical stroke transitions (>= 12 across ROI)
-    const hasDigitContent =
-      contrast >= 32 &&
-      edgeDensityRatio >= 0.035 &&
-      edgeDensityRatio <= 0.50 &&
-      verticalTransitions >= 12;
+    // Ultra-lenient digit/text content check:
+    // - Reasonable contrast (>= 24)
+    // - Simple edge density (>= 2.5%)
+    const hasDigitContent = contrast >= 24 && edgeDensityRatio >= 0.025;
 
-    // 2. Motion / Stability Analysis (MAD against previous frame)
+    // Fast Motion Check
     let motionDiff = 0;
     if (this.history.length > 0) {
       const lastGray = this.history[this.history.length - 1]!;
@@ -134,19 +125,18 @@ export class LiveFrameAnalyzer {
       for (let i = 0; i < len; i++) {
         diffSum += Math.abs(gray[i]! - lastGray[i]!);
       }
-      motionDiff = diffSum / len; // Mean Absolute Difference (0..255)
+      motionDiff = diffSum / len;
     } else {
       motionDiff = 999;
     }
 
-    // Push to history
     this.history.push(gray);
     if (this.history.length > this.historyCapacity) {
       this.history.shift();
     }
 
-    // Motion threshold: MAD < 15.0 means camera is held still
-    const isFrameStill = motionDiff < 15.0;
+    // Lenient motion check: MAD < 25.0 (handles slight hand movement)
+    const isFrameStill = motionDiff < 25.0;
 
     if (hasDigitContent && isFrameStill) {
       this.stableCount++;
@@ -155,7 +145,7 @@ export class LiveFrameAnalyzer {
     }
 
     const isStable = this.stableCount >= this.requiredStableFrames;
-    const isReadyForCapture = isStable && hasDigitContent;
+    const isReadyForCapture = hasDigitContent && isStable;
 
     return {
       hasDigitContent,

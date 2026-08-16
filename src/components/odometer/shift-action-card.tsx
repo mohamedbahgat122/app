@@ -63,13 +63,42 @@ export function ShiftActionCard({ mode, startReading }: ShiftActionCardProps) {
     };
   }, []);
 
-  function acceptPhoto(blob: Blob, capturedAt: string, url: string, crop: OdometerCrop) {
+  function acceptPhoto(
+    blob: Blob,
+    capturedAt: string,
+    url: string,
+    crop: OdometerCrop,
+    preCalculatedReading?: string,
+  ) {
     setPhoto({ blob, capturedAt, url, crop });
     setIsCameraOpen(false);
     setErrorKey(null);
     setServerErrorMessage(null);
     setSuccess(null);
-    setOcrResult(null);
+
+    if (preCalculatedReading) {
+      setOcrResult({
+        reading: preCalculatedReading,
+        accepted: true,
+        confidence: 100,
+        rawText: preCalculatedReading,
+        candidates: [],
+        status: "accepted",
+        rejectionReason: null,
+      });
+      setReading(preCalculatedReading);
+      setIsOcrProcessing(false);
+
+      if (
+        mode === "end" &&
+        startReading !== undefined &&
+        BigInt(preCalculatedReading) < BigInt(startReading)
+      ) {
+        setErrorKey("endBelowStart");
+      }
+      return;
+    }
+
     setIsOcrProcessing(true);
 
     const runId = ++ocrRunRef.current;

@@ -164,20 +164,20 @@
     }
   },
   "Camera": {
-    "title": "Capture odometer",
-    "instruction": "Place the odometer digits clearly inside the frame",
+    "title": "Capture Total Odometer",
+    "instruction": "Place odometer numbers clearly inside the strip",
     "loading": "Opening camera...",
-    "capture": "Capture photo",
+    "capture": "Capture Photo",
     "finalizing": "Verifying...",
     "close": "Close camera",
     "retake": "Retake",
     "usePhoto": "Use Photo",
     "previewAlt": "Odometer photo preview",
     "alignment": {
-      "hint": "Place the odometer number inside the frame",
-      "aligned": "Odometer identified",
+      "hint": "Place total odometer reading inside the frame",
+      "aligned": "Reading identified",
       "capturing": "Capturing photo...",
-      "verifying": "Reading odometer number...",
+      "verifying": "Reading total odometer...",
       "verified": "Odometer reading verified"
     },
     "errors": {
@@ -187,7 +187,7 @@
       "noDevice": "No camera device was found",
       "captureFailed": "Could not capture the photo. Please try again.",
       "alignFirst": "Place the odometer reading inside the frame first.",
-      "finalVerificationFailed": "Could not read the number clearly. Move the camera closer and retake photo."
+      "finalVerificationFailed": "Could not read total odometer. Move closer and retake photo."
     }
   },
   "Requests": {

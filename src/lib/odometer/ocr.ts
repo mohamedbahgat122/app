@@ -6,6 +6,7 @@ export type OdometerOcrCandidate = {
   confidence: number;
   pass: string;
   rawText: string;
+  isOdoAnchored?: boolean;
 };
 
 export type OdometerOcrResult = {
@@ -16,7 +17,6 @@ export type OdometerOcrResult = {
   candidates: OdometerOcrCandidate[];
   status: "accepted" | "rejected";
   rejectionReason: "no_candidate" | "low_confidence" | "conflict" | null;
-  /** DEV-ONLY: per-pass raw texts from live detection */
   _debugPasses?: Record<string, string>;
 };
 
@@ -30,73 +30,45 @@ type OdometerOcrPass = {
   contrast?: number;
 };
 
-// ── Final OCR thresholds (strict) ──────────────────────────────────────────
-const minimumAcceptedConfidence = 55;
+// ── Final OCR thresholds ──────────────────────────────────────────────────
+const minimumAcceptedConfidence = 52;
 const minimumCandidateDigits = 4;
 const preferredMinimumDigits = 5;
-const preferredMaximumDigits = 8;
-const strongDisagreementRatio = 0.55;
-
-// ── Live OCR thresholds (lenient) ──────────────────────────────────────────
-/** Minimum digits in live mode: 3–8 */
-const liveMinimumDigits = 3;
-/** Accept if raw Tesseract confidence ≥ this value */
-const minimumLiveConfidence = 15;
+const preferredMaximumDigits = 9;
 
 // ── Shared worker (created once, reused across scans) ──────────────────────
 let workerPromise: Promise<import("tesseract.js").Worker> | null = null;
 
-// ── Live OCR: two lightweight passes ─────────────────────────────────────
-// Pass 1: normal grayscale + gentle contrast  (light digits on dark bg → may need invert)
-// Pass 2: inverted grayscale                  (dark on light, classic OCR expectation)
-const liveOcrPassNormal: OdometerOcrPass = {
-  name: "live-normal",
-  cropPaddingX: 0.08,
-  cropPaddingY: 0.08,
-  maxWidth: 800,
-  mode: "grayscale",
-  contrast: 1.1,
-};
-
-const liveOcrPassInvert: OdometerOcrPass = {
-  name: "live-invert",
-  cropPaddingX: 0.08,
-  cropPaddingY: 0.08,
-  maxWidth: 800,
-  mode: "invert",
-  contrast: 1.15,
-};
-
-// ── Final OCR passes (multi-pass, strict) ─────────────────────────────────
+// ── Final OCR passes (4 variants for all display types & colors) ───────────
 const ocrPasses: OdometerOcrPass[] = [
   {
     name: "scan-grayscale",
-    cropPaddingX: 0.06,
-    cropPaddingY: 0.08,
-    maxWidth: 1100,
+    cropPaddingX: 0.05,
+    cropPaddingY: 0.06,
+    maxWidth: 1200,
     mode: "grayscale",
     contrast: 1.15,
   },
   {
     name: "scan-invert",
-    cropPaddingX: 0.07,
-    cropPaddingY: 0.08,
-    maxWidth: 1100,
+    cropPaddingX: 0.05,
+    cropPaddingY: 0.06,
+    maxWidth: 1200,
     mode: "invert",
     contrast: 1.2,
   },
   {
     name: "scan-contrast",
-    cropPaddingX: 0.07,
-    cropPaddingY: 0.08,
-    maxWidth: 1100,
+    cropPaddingX: 0.06,
+    cropPaddingY: 0.06,
+    maxWidth: 1200,
     mode: "contrast",
     contrast: 1.55,
   },
   {
     name: "scan-threshold",
-    cropPaddingX: 0.08,
-    cropPaddingY: 0.1,
+    cropPaddingX: 0.06,
+    cropPaddingY: 0.06,
     maxWidth: 1200,
     mode: "threshold",
     contrast: 1.35,
@@ -109,77 +81,8 @@ const ocrPasses: OdometerOcrPass[] = [
 // ──────────────────────────────────────────────────────────────────────────
 
 /**
- * LIVE MODE — lenient two-pass OCR (normal + inverted).
- *
- * Returns accepted=true as soon as ANY 3–8 digit sequence is found in
- * either pass. No consensus, no penalties, no repeated-reading requirement.
- */
-export async function readOdometerLiveDetection(
-  blob: Blob,
-  crop: OdometerCrop,
-): Promise<OdometerOcrResult> {
-  const worker = await getOdometerWorker();
-  await setOdometerWorkerMode("live");
-
-  const passes = [liveOcrPassNormal, liveOcrPassInvert];
-  const passResults: Record<string, string> = {};
-
-  for (const pass of passes) {
-    // Returns canvas directly — no Blob URL needed
-    const canvas = await preprocessOdometerImage(blob, crop, pass);
-
-    const { data } = await worker.recognize(canvas);
-    const rawText = data.text ?? "";
-    const rawConf = data.confidence ?? 0;
-
-    passResults[pass.name] = rawText.trim();
-
-    if (OCR_DEBUG) {
-      // dataURL for debug preview — independent of OCR, never revoked
-      const dataUrl = canvas.toDataURL("image/png");
-      showDebugPreview(dataUrl, pass.name);
-      console.log(
-        `[OCR] ${pass.name} conf=${rawConf.toFixed(1)} | text=${JSON.stringify(rawText.trim())}`,
-      );
-    }
-
-    const candidates = extractLiveCandidates(rawText, rawConf);
-
-    if (candidates.length > 0) {
-      const best = candidates[0]!;
-      if (OCR_DEBUG) {
-        console.log(
-          `[OCR] FOUND via ${pass.name}: "${best.reading}" conf=${best.confidence} accepted=true`,
-        );
-      }
-      return {
-        reading: best.reading,
-        accepted: true,
-        confidence: best.confidence,
-        rawText,
-        candidates,
-        status: "accepted",
-        rejectionReason: null,
-        _debugPasses: OCR_DEBUG ? { ...passResults } : undefined,
-      };
-    }
-  }
-
-  if (OCR_DEBUG) {
-    console.log(
-      `[OCR] No candidate. passes: ${JSON.stringify(passResults)}`,
-    );
-  }
-
-  return {
-    ...rejectedResult("no_candidate", "", []),
-    _debugPasses: OCR_DEBUG ? passResults : undefined,
-  };
-}
-
-/**
- * FINAL MODE — strict multi-pass OCR after photo is captured.
- * Unchanged behaviour.
+ * FINAL MODE — strict multi-pass OCR on captured still photo.
+ * Always runs ALL passes to find the full Total Odometer reading.
  */
 export async function readOdometerFromPhoto(
   blob: Blob,
@@ -190,12 +93,10 @@ export async function readOdometerFromPhoto(
   const rawTexts: string[] = [];
 
   for (const pass of ocrPasses) {
-    // Canvas passed directly — no Blob URL lifecycle risk
-    await setOdometerWorkerMode("final");
     const canvas = await preprocessOdometerImage(blob, crop, pass);
     const { data } = await worker.recognize(canvas);
     rawTexts.push(`[${pass.name}] ${data.text}`);
-    const extracted = extractOdometerReading(data.text, data.confidence, pass.name);
+    const extracted = extractOdometerReading(data.text ?? "", data.confidence ?? 0, pass.name);
     candidates.push(...extracted);
   }
 
@@ -208,7 +109,10 @@ export async function terminateOdometerOcrWorker() {
   await worker?.terminate().catch(() => undefined);
 }
 
-/** Used by final-mode only. */
+// ──────────────────────────────────────────────────────────────────────────
+// CANDIDATE EXTRACTION — ODO ANCHORS & TOTAL ODOMETER PRIORITY
+// ──────────────────────────────────────────────────────────────────────────
+
 export function extractOdometerReading(
   ocrText: string,
   confidence: number,
@@ -216,6 +120,23 @@ export function extractOdometerReading(
 ): OdometerOcrCandidate[] {
   const normalized = normalizeOcrText(ocrText);
   const candidates: OdometerOcrCandidate[] = [];
+
+  // PASS A: Check for explicit ODO / ODOMETER / TOTAL anchors first
+  const anchorRegex = /(?:odo|od0|0do|odometer|total)\s*[:=]?\s*(\d{4,9})/giu;
+  for (const match of normalized.matchAll(anchorRegex)) {
+    const reading = match[1]!.replace(/[^\d]/g, "");
+    if (isPlausibleReading(reading)) {
+      candidates.push({
+        reading,
+        confidence: clamp(Math.round(confidence + 50), 0, 100),
+        pass,
+        rawText: ocrText,
+        isOdoAnchored: true,
+      });
+    }
+  }
+
+  // PASS B: General digit extraction
   const patterns = [
     /(?<!\d)(?:\d{1,3}(?:[\s,.]\d{3}){1,3})(?!\d)/gu,
     /(?<!\d)\d{4,9}(?!\d)/gu,
@@ -231,17 +152,29 @@ export function extractOdometerReading(
       const after = normalized.slice(match.index + raw.length, match.index + raw.length + 14);
       let score = confidence;
 
-      if (hasOdometerContext(before, after)) score += 18;
-      if (reading.length >= preferredMinimumDigits && reading.length <= preferredMaximumDigits) score += 16;
-      if (/^0{2,}\d{3,}$/u.test(reading)) score -= 45;
+      // Bonus for ODO / km context
+      if (hasOdometerContext(before, after)) score += 20;
+
+      // Bonus for preferred odometer digit length (5-8 digits)
+      if (reading.length >= preferredMinimumDigits && reading.length <= preferredMaximumDigits) {
+        score += 20;
+      }
+
+      // Penalize leading zeros
+      if (/^0{2,}\d{3,}$/u.test(reading)) score -= 40;
+
+      // Penalize clock / temperature / trip decimals
       if (looksLikeClockOrTemperature(raw, before, after)) score -= 50;
-      if (looksLikeSpeed(raw, before, after)) score -= 35;
+
+      // Penalize speed (km/h)
+      if (looksLikeSpeed(raw, before, after)) score -= 45;
 
       candidates.push({
         reading,
         confidence: clamp(Math.round(score), 0, 100),
         pass,
         rawText: ocrText,
+        isOdoAnchored: false,
       });
     }
   }
@@ -250,72 +183,20 @@ export function extractOdometerReading(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// LIVE EXTRACTION — no penalties, just find digits
-// ──────────────────────────────────────────────────────────────────────────
-
-function extractLiveCandidates(
-  ocrText: string,
-  confidence: number,
-): OdometerOcrCandidate[] {
-  const normalized = normalizeOcrText(ocrText);
-  const candidates: OdometerOcrCandidate[] = [];
-
-  // Patterns: formatted numbers (e.g. 300,250) and plain digit sequences 3-8 digits
-  const patterns = [
-    /(?<!\d)(?:\d{1,3}(?:[\s,.]\d{3}){1,2})(?!\d)/gu,
-    /(?<!\d)\d{3,8}(?!\d)/gu,
-  ];
-
-  for (const pattern of patterns) {
-    for (const match of normalized.matchAll(pattern)) {
-      const raw = match[0];
-      const reading = raw.replace(/[^\d]/g, "");
-      if (!isLivePlausibleReading(reading)) continue;
-
-      let score = confidence;
-      if (reading.length >= preferredMinimumDigits && reading.length <= preferredMaximumDigits) {
-        score += 8;
-      }
-
-      candidates.push({
-        reading,
-        confidence: clamp(Math.round(score), 0, 100),
-        pass: "live",
-        rawText: ocrText,
-      });
-    }
-  }
-
-  // Dedup by reading, keep highest confidence
-  const map = new Map<string, OdometerOcrCandidate>();
-  for (const c of candidates) {
-    const existing = map.get(c.reading);
-    if (!existing || c.confidence > existing.confidence) {
-      map.set(c.reading, c);
-    }
-  }
-
-  return Array.from(map.values())
-    .filter((c) => c.confidence >= minimumLiveConfidence)
-    .sort((a, b) => b.confidence - a.confidence || b.reading.length - a.reading.length);
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// WORKER MANAGEMENT (single shared worker, reused)
+// WORKER MANAGEMENT
 // ──────────────────────────────────────────────────────────────────────────
 
 async function getOdometerWorker() {
   workerPromise ??= (async () => {
     const { createWorker, PSM } = await import("tesseract.js");
     const worker = await createWorker("eng", 1, {
-      logger: () => undefined, // suppress all Tesseract console output
+      logger: () => undefined,
     });
     await worker.setParameters({
-      // Start in live mode params; setOdometerWorkerMode will switch as needed
-      tessedit_char_whitelist: "0123456789",
-      tessedit_pageseg_mode: PSM.SINGLE_LINE,
+      tessedit_char_whitelist: "0123456789,. kmKMODOodoTOTALtotal",
+      tessedit_pageseg_mode: PSM.SPARSE_TEXT,
       debug_file: "/dev/null",
-      preserve_interword_spaces: "0",
+      preserve_interword_spaces: "1",
     });
     return worker;
   })();
@@ -323,87 +204,115 @@ async function getOdometerWorker() {
   return workerPromise;
 }
 
-async function setOdometerWorkerMode(mode: "live" | "final") {
-  const { PSM } = await import("tesseract.js");
-  const worker = await getOdometerWorker();
-
-  await worker.setParameters(
-    mode === "live"
-      ? {
-          // Digits only — no km/ODO noise to confuse the model
-          tessedit_char_whitelist: "0123456789",
-          // SINGLE_LINE: treat the crop as one line of digits
-          tessedit_pageseg_mode: PSM.SINGLE_LINE,
-          debug_file: "/dev/null",
-          preserve_interword_spaces: "0",
-        }
-      : {
-          tessedit_char_whitelist: "0123456789,. kmKMODOodo",
-          tessedit_pageseg_mode: PSM.SPARSE_TEXT,
-          debug_file: "/dev/null",
-          preserve_interword_spaces: "1",
-        },
-  );
-}
-
 // ──────────────────────────────────────────────────────────────────────────
-// FINAL-MODE CONSENSUS
+// FINAL CONSENSUS & PARTIAL PREFIX RESOLUTION
 // ──────────────────────────────────────────────────────────────────────────
 
 function buildConsensusResult(
   candidates: OdometerOcrCandidate[],
   rawText: string,
 ): OdometerOcrResult {
-  const usableCandidates = dedupeCandidates(candidates)
-    .filter((candidate) => candidate.confidence >= 35)
-    .sort((a, b) => b.confidence - a.confidence);
-
-  if (usableCandidates.length === 0) {
+  if (candidates.length === 0) {
     return rejectedResult("no_candidate", rawText, []);
   }
 
-  const groups = new Map<string, OdometerOcrCandidate[]>();
+  // Filter out candidates with zero or negative confidence
+  let pool = dedupeCandidates(candidates).filter((c) => c.confidence >= 25);
+  if (pool.length === 0) {
+    return rejectedResult("no_candidate", rawText, []);
+  }
 
-  for (const candidate of usableCandidates) {
+  // RESOLVE PARTIAL PREFIXES:
+  // If candidate A (e.g. "2802") is a prefix of candidate B (e.g. "280210"),
+  // candidate B is the full reading. Penalize partial prefix candidate A.
+  const allReadings = Array.from(new Set(pool.map((c) => c.reading)));
+  const prefixSet = new Set<string>();
+
+  for (const shortRead of allReadings) {
+    for (const longRead of allReadings) {
+      if (
+        shortRead !== longRead &&
+        longRead.length > shortRead.length &&
+        longRead.startsWith(shortRead)
+      ) {
+        prefixSet.add(shortRead);
+      }
+    }
+  }
+
+  // Demote partial prefix candidates
+  pool = pool.map((c) => {
+    if (prefixSet.has(c.reading)) {
+      return { ...c, confidence: Math.max(0, c.confidence - 50) };
+    }
+    return c;
+  }).filter((c) => c.confidence >= 20);
+
+  if (pool.length === 0) {
+    return rejectedResult("no_candidate", rawText, []);
+  }
+
+  // Group by reading
+  const groups = new Map<string, OdometerOcrCandidate[]>();
+  for (const candidate of pool) {
     groups.set(candidate.reading, [...(groups.get(candidate.reading) ?? []), candidate]);
   }
 
   const rankedGroups = Array.from(groups.entries())
-    .map(([reading, group]) => ({
-      reading,
-      group,
-      passCount: new Set(group.map((candidate) => candidate.pass)).size,
-      averageConfidence: average(group.map((candidate) => candidate.confidence)),
-      bestConfidence: Math.max(...group.map((candidate) => candidate.confidence)),
-    }))
-    .sort((a, b) => {
-      if (b.passCount !== a.passCount) return b.passCount - a.passCount;
-      if (b.averageConfidence !== a.averageConfidence) return b.averageConfidence - a.averageConfidence;
-      return b.reading.length - a.reading.length;
-    });
+    .map(([reading, group]) => {
+      const hasAnchor = group.some((c) => c.isOdoAnchored);
+      const passCount = new Set(group.map((c) => c.pass)).size;
+      const avgConf = average(group.map((c) => c.confidence));
+      const maxConf = Math.max(...group.map((c) => c.confidence));
+
+      // Extra weight for ODO anchored readings & multi-pass agreement
+      let score = avgConf + (hasAnchor ? 30 : 0) + (passCount >= 2 ? 25 : 0);
+      if (reading.length >= preferredMinimumDigits) score += 10;
+
+      return {
+        reading,
+        group,
+        hasAnchor,
+        passCount,
+        averageConfidence: avgConf,
+        bestConfidence: maxConf,
+        score,
+      };
+    })
+    .sort((a, b) => b.score - a.score || b.passCount - a.passCount || b.reading.length - a.reading.length);
 
   const best = rankedGroups[0];
   const second = rankedGroups[1];
 
   if (!best) {
-    return rejectedResult("no_candidate", rawText, usableCandidates);
+    return rejectedResult("no_candidate", rawText, pool);
   }
 
-  if (best.passCount < 2) {
-    return rejectedResult("conflict", rawText, usableCandidates);
+  // STRICT VERIFICATION EVIDENCE:
+  // Accept ONLY IF:
+  // 1. Has explicit ODO anchor with maxConf >= 45, OR
+  // 2. Appeared in at least 2 passes with avgConf >= 48, OR
+  // 3. Long digit sequence (>=5 digits) with maxConf >= 65
+  const isAccepted =
+    best.hasAnchor ||
+    best.passCount >= 2 ||
+    (best.reading.length >= preferredMinimumDigits && best.bestConfidence >= 65);
+
+  if (!isAccepted) {
+    return rejectedResult("low_confidence", rawText, pool);
   }
 
-  if (best.averageConfidence < minimumAcceptedConfidence && best.bestConfidence < 72) {
-    return rejectedResult("low_confidence", rawText, usableCandidates);
-  }
-
+  // Check for strong un-resolvable conflict
   if (
     second &&
+    !best.hasAnchor &&
     second.passCount >= 2 &&
-    second.averageConfidence >= best.averageConfidence * strongDisagreementRatio &&
-    second.reading !== best.reading
+    second.bestConfidence >= best.bestConfidence * 0.85 &&
+    second.reading !== best.reading &&
+    !best.reading.startsWith(second.reading) &&
+    !second.reading.startsWith(best.reading)
   ) {
-    return rejectedResult("conflict", rawText, usableCandidates);
+    return rejectedResult("conflict", rawText, pool);
   }
 
   return {
@@ -411,7 +320,7 @@ function buildConsensusResult(
     accepted: true,
     confidence: clamp(Math.round(best.averageConfidence), 0, 100),
     rawText,
-    candidates: usableCandidates,
+    candidates: pool,
     status: "accepted",
     rejectionReason: null,
   };
@@ -455,8 +364,6 @@ async function preprocessOdometerImage(
   bitmap.close();
   applyImageProcessing(context, width, height, pass);
 
-  // Return the canvas directly — callers pass it to worker.recognize()
-  // No Blob URL created here, so no revocation race condition.
   return canvas;
 }
 
@@ -478,21 +385,18 @@ function applyImageProcessing(
     let value: number;
 
     if (pass.mode === "invert") {
-      // Invert then contrast — converts bright-on-dark to dark-on-light
       const inverted = 255 - gray;
       value = clamp((inverted - 128) * (pass.contrast ?? 1.15) + 128, 0, 255);
     } else if (pass.mode === "threshold") {
       const contrasted = clamp((gray - 128) * (pass.contrast ?? 1) + 128, 0, 255);
       value = contrasted > (pass.threshold ?? 145) ? 255 : 0;
     } else {
-      // grayscale or contrast
       value = clamp((gray - 128) * (pass.contrast ?? 1) + 128, 0, 255);
     }
 
     data[index] = value;
     data[index + 1] = value;
     data[index + 2] = value;
-    // alpha unchanged
   }
 
   context.putImageData(imageData, 0, 0);
@@ -520,55 +424,13 @@ function getSourceCrop(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// OCR_DEBUG: show the actual image sent to Tesseract as a small overlay
-// ──────────────────────────────────────────────────────────────────────────
-
-function showDebugPreview(dataUrl: string, passName: string) {
-  if (typeof document === "undefined") return;
-  const existingId = `ocr-debug-${passName}`;
-  const existing = document.getElementById(existingId);
-  if (existing) existing.remove();
-
-  const wrapper = document.createElement("div");
-  wrapper.id = existingId;
-  wrapper.style.cssText = [
-    "position:fixed",
-    "bottom:" + (passName.includes("invert") ? "140px" : "80px"),
-    "right:8px",
-    "z-index:99999",
-    "border:2px solid " + (passName.includes("invert") ? "#60a5fa" : "#fbbf24"),
-    "background:#000",
-    "font-size:9px",
-    "color:#fff",
-    "line-height:1.2",
-    "padding:2px 4px",
-    "border-radius:4px",
-    "pointer-events:none",
-  ].join(";");
-
-  const label = document.createElement("div");
-  label.textContent = passName;
-  wrapper.appendChild(label);
-
-  // dataURL — never revoked, always readable
-  const img = document.createElement("img");
-  img.src = dataUrl;
-  img.style.cssText = "display:block;max-width:180px;max-height:48px;object-fit:contain";
-  wrapper.appendChild(img);
-
-  document.body.appendChild(wrapper);
-  // Auto-remove after 3s so it doesn't accumulate
-  setTimeout(() => wrapper.remove(), 3000);
-}
-
-// ──────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ──────────────────────────────────────────────────────────────────────────
 
 function normalizeOcrText(value: string) {
   return Array.from(value.normalize("NFKC"))
     .map((char) => {
-      const eastern = "٠١٢٣٤٥٦٧٨٩".indexOf(char);
+      const eastern = "٠١٢٣٥٦٧٨٩".indexOf(char);
       if (eastern >= 0) return String(eastern);
       const persian = "۰۱۲۳۴۵۶۷۸۹".indexOf(char);
       if (persian >= 0) return String(persian);
@@ -578,20 +440,11 @@ function normalizeOcrText(value: string) {
     .join("");
 }
 
-/** Plausibility for FINAL mode (≥4 digits). */
 function isPlausibleReading(reading: string) {
   if (reading.length < minimumCandidateDigits || reading.length > 9) return false;
-  if (/^0{2,}\d{3,}$/u.test(reading)) return false;
+  if (/^0{3,}\d+$/u.test(reading)) return false;
   const value = Number(reading);
   return Number.isInteger(value) && value >= 0 && value <= 2_147_483_647;
-}
-
-/** Plausibility for LIVE mode (≥3 digits, lenient). */
-function isLivePlausibleReading(reading: string) {
-  if (reading.length < liveMinimumDigits || reading.length > 8) return false;
-  if (/^0{3,}$/u.test(reading)) return false;
-  const value = Number(reading);
-  return Number.isInteger(value) && value >= 0 && value <= 9_999_999;
 }
 
 function dedupeCandidates(candidates: OdometerOcrCandidate[]) {
@@ -623,8 +476,8 @@ function rejectedResult(
 }
 
 function hasOdometerContext(before: string, after: string) {
-  return /(odo|odometer|km|كلم|كم)\s*$/iu.test(before.trim()) ||
-    /^\s*(km|odo|odometer|كلم|كم)/iu.test(after.trim());
+  return /(odo|od0|0do|odometer|total|km|كلم|كم)\s*$/iu.test(before.trim()) ||
+    /^\s*(km|odo|od0|0do|odometer|total|كلم|كم)/iu.test(after.trim());
 }
 
 function looksLikeClockOrTemperature(raw: string, before: string, after: string) {
