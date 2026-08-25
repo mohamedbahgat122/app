@@ -5,7 +5,11 @@ import {
   resolveRepresentativeContext,
   type RepresentativeContextCode,
 } from "@/lib/app/representative-context";
-import { normalizeOdometerReading } from "@/server/odometer/normalize-reading";
+import {
+  verifyOdometerPhoto,
+  type OdometerPhotoCrop,
+  type OdometerVerificationResult,
+} from "@/server/odometer/photo-verification";
 import type { Database } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -23,9 +27,9 @@ type ForbiddenCode =
 
 type RequestBody = {
   action?: unknown;
-  manualReading?: unknown;
   photoPath?: unknown;
   photoCapturedAt?: unknown;
+  photoCrop?: unknown;
 };
 
 export async function POST(request: Request) {
@@ -38,18 +42,13 @@ export async function POST(request: Request) {
     logStage(requestId, stage);
     const body = (await request.json().catch(() => null)) as RequestBody | null;
     const action = body?.action === "start" || body?.action === "end" ? body.action : null;
-    const manualReading = typeof body?.manualReading === "string" ? body.manualReading : "";
     photoPath = typeof body?.photoPath === "string" ? body.photoPath : "";
     const photoCapturedAt =
       typeof body?.photoCapturedAt === "string" ? body.photoCapturedAt : "";
+    const photoCrop = parsePhotoCrop(body?.photoCrop);
 
     if (!action || !photoPath || !photoCapturedAt) {
       return jsonError("invalid_request", 400);
-    }
-
-    const normalizedManual = normalizeOdometerReading(manualReading);
-    if (normalizedManual.status !== "valid") {
-      return jsonError("invalid_reading", 400);
     }
 
     stage = "auth_validated";
@@ -110,16 +109,43 @@ export async function POST(request: Request) {
     if (error || !data) throw new Error("ODOMETER_IMAGE_DOWNLOAD_FAILED");
     logStage(requestId, stage);
 
-    stage = "manual_reading_accepted";
+    stage = "server_ocr_started";
     logStage(requestId, stage);
+    const image = Buffer.from(await data.arrayBuffer());
+    const currentShiftStartReading =
+      action === "end"
+        ? await loadOpenShiftStartReading({
+            driverId: driverContext.driver.id,
+            organizationId: driverContext.driver.organization_id,
+            supabase: admin,
+          })
+        : null;
 
-    const numericReading = Number(normalizedManual.value);
+    const verification = await verifyOdometerPhoto({
+      action,
+      crop: photoCrop,
+      currentShiftStartReading,
+      driverId: driverContext.driver.id,
+      image,
+      supabase: admin,
+      vehicleId: driverContext.vehicle?.id ?? null,
+    });
+
+    if (!verification.accepted) {
+      await cleanupPhoto(photoPath, admin);
+      logOcrRejected(requestId, verification);
+      return jsonError(mapOcrRejectionCode(verification.rejectionReason), 422);
+    }
+    logStage(requestId, "server_ocr_completed");
+    logStage(requestId, "server_ocr_accepted");
+
     const shift =
       action === "start"
         ? await startShift({
             driver: driverContext.driver,
             vehicle: driverContext.vehicle,
-            reading: numericReading,
+            reading: verification.detectedReading,
+            verification,
             photoPath,
             photoCapturedAt,
             supabase: admin,
@@ -127,7 +153,8 @@ export async function POST(request: Request) {
         : await endShift({
             driverId: driverContext.driver.id,
             organizationId: driverContext.driver.organization_id,
-            reading: numericReading,
+            reading: verification.detectedReading,
+            verification,
             photoPath,
             photoCapturedAt,
             supabase: admin,
@@ -160,10 +187,13 @@ export async function POST(request: Request) {
       supabase: admin,
     });
 
+    logStage(requestId, "response_sent");
     return NextResponse.json({
       ok: true,
       status: "pending_review",
       reviewStatus: "pending_review",
+      detectedReading: verification.detectedReading,
+      confidence: verification.confidence,
       shift,
     });
   } catch (error) {
@@ -178,6 +208,7 @@ async function startShift({
   driver,
   vehicle,
   reading,
+  verification,
   photoPath,
   photoCapturedAt,
   supabase,
@@ -190,6 +221,7 @@ async function startShift({
   };
   vehicle: { id: string; plate_number: string | null } | null;
   reading: number;
+  verification: Extract<OdometerVerificationResult, { accepted: true }>;
   photoPath: string;
   photoCapturedAt: string;
   supabase: SupabaseAdminClient;
@@ -213,7 +245,11 @@ async function startShift({
     start_odometer_reading: reading,
     start_photo_path: photoPath,
     start_photo_captured_at: photoCapturedAt,
+    start_ocr_confidence: verification.confidence,
+    start_ocr_provider: "tesseract.js",
+    start_ocr_reading: verification.rawDigits,
     start_review_status: "pending_review",
+    start_verified_at: new Date().toISOString(),
   };
 
   const { data, error } = await supabase
@@ -230,6 +266,7 @@ async function endShift({
   driverId,
   organizationId,
   reading,
+  verification,
   photoPath,
   photoCapturedAt,
   supabase,
@@ -237,6 +274,7 @@ async function endShift({
   driverId: string;
   organizationId: string;
   reading: number;
+  verification: Extract<OdometerVerificationResult, { accepted: true }>;
   photoPath: string;
   photoCapturedAt: string;
   supabase: SupabaseAdminClient;
@@ -257,7 +295,11 @@ async function endShift({
     end_odometer_reading: reading,
     end_photo_path: photoPath,
     end_photo_captured_at: photoCapturedAt,
+    end_ocr_confidence: verification.confidence,
+    end_ocr_provider: "tesseract.js",
+    end_ocr_reading: verification.rawDigits,
     end_review_status: "pending_review",
+    end_verified_at: new Date().toISOString(),
   };
 
   const { data, error } = await supabase
@@ -319,6 +361,29 @@ async function recordActivity({
   }
 }
 
+async function loadOpenShiftStartReading({
+  driverId,
+  organizationId,
+  supabase,
+}: {
+  driverId: string;
+  organizationId: string;
+  supabase: SupabaseAdminClient;
+}) {
+  const { data, error } = await supabase
+    .from("driver_shifts")
+    .select("start_odometer_reading")
+    .eq("driver_id", driverId)
+    .eq("organization_id", organizationId)
+    .eq("status", "open")
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("SHIFT_NO_OPEN_SHIFT");
+
+  return data.start_odometer_reading;
+}
+
 async function cleanupPhoto(path: string, supabase: SupabaseAdminClient | null) {
   if (!path) return;
   if (!supabase) return;
@@ -334,6 +399,35 @@ async function cleanupPhoto(path: string, supabase: SupabaseAdminClient | null) 
   }
 }
 
+function parsePhotoCrop(value: unknown): OdometerPhotoCrop | null {
+  if (!value || typeof value !== "object") return null;
+
+  const candidate = value as Partial<Record<keyof OdometerPhotoCrop, unknown>>;
+  const crop = {
+    x: Number(candidate.x),
+    y: Number(candidate.y),
+    width: Number(candidate.width),
+    height: Number(candidate.height),
+  };
+
+  if (
+    Number.isFinite(crop.x) &&
+    Number.isFinite(crop.y) &&
+    Number.isFinite(crop.width) &&
+    Number.isFinite(crop.height) &&
+    crop.x >= 0 &&
+    crop.y >= 0 &&
+    crop.width > 0 &&
+    crop.height > 0 &&
+    crop.x + crop.width <= 1 &&
+    crop.y + crop.height <= 1
+  ) {
+    return crop;
+  }
+
+  return null;
+}
+
 function isOwnedOdometerPath(path: string, userId: string) {
   return (
     path === path.trim() &&
@@ -344,6 +438,18 @@ function isOwnedOdometerPath(path: string, userId: string) {
 
 function isOdometerPathShape(path: string) {
   return /^[0-9a-f-]{36}\/[0-9a-f-]{36}\/(?:start|end)\.jpg$/i.test(path);
+}
+
+function mapOcrRejectionCode(
+  reason: Extract<OdometerVerificationResult, { accepted: false }>["rejectionReason"],
+) {
+  if (reason === "end_below_start") return "end_below_start";
+  if (reason === "below_previous") return "reading_below_previous";
+  if (reason === "image_dimensions_unavailable" || reason === "ocr_failed") {
+    return "invalid_photo";
+  }
+
+  return "odometer_unverified";
 }
 
 function mapServerError(error: unknown) {
@@ -432,6 +538,12 @@ function messageForCode(code: string) {
   if (code === "invalid_reading") {
     return "أدخل قراءة عداد صحيحة.";
   }
+  if (code === "odometer_unverified") {
+    return "تعذر التحقق من قراءة العداد";
+  }
+  if (code === "reading_below_previous") {
+    return "قراءة العداد أقل من آخر قراءة معتمدة.";
+  }
   if (code === "no_open_shift") {
     return "لا توجد بداية دوام مسجلة لهذا اليوم.";
   }
@@ -442,6 +554,28 @@ function messageForCode(code: string) {
     return "تعذر التحقق من صورة العداد.";
   }
   return "تعذر حفظ بيانات الدوام، حاول مرة أخرى.";
+}
+
+function logOcrRejected(
+  requestId: string,
+  verification: Extract<OdometerVerificationResult, { accepted: false }>,
+) {
+  if (process.env.NODE_ENV !== "production") {
+    console.warn("[odometer-shift] server_ocr_rejected", {
+      requestId,
+      rejectionReason: verification.rejectionReason,
+      confidence: verification.confidence,
+      previousReading: verification.previousReading,
+      candidateCount: verification.candidates.length,
+      candidates: verification.candidates.slice(0, 5).map((candidate) => ({
+        digits: candidate.digits,
+        confidence: candidate.confidence,
+        score: candidate.score,
+        source: candidate.source,
+        reason: candidate.reason,
+      })),
+    });
+  }
 }
 
 function statusForForbiddenCode(code: ForbiddenCode) {

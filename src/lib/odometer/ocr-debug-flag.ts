@@ -7,4 +7,4 @@
  *
  * ⚠️  Remember to set back to `false` after production testing is done.
  */
-export const OCR_DEBUG = true;
+export const OCR_DEBUG = process.env.NODE_ENV !== "production" && false;

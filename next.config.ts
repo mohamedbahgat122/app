@@ -18,6 +18,7 @@ function getSupabaseStorageHostname() {
 const supabaseStorageHostname = getSupabaseStorageHostname();
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["tesseract.js", "tesseract.js-core"],
   images: supabaseStorageHostname
     ? {
         remotePatterns: [
