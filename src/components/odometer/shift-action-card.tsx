@@ -16,7 +16,7 @@ type CapturedPhoto = {
 
 type ShiftActionCardProps = {
   mode: ShiftMode;
-  startReading?: number;
+  startReading?: number | null;
 };
 
 type OdometerShiftResponse =

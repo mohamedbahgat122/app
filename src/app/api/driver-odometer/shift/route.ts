@@ -195,14 +195,24 @@ export async function POST(request: Request) {
     });
 
     if (!verification.accepted) {
-      await cleanupPhoto(photoPath, admin);
-      logOcrRejected(requestId, verification);
-      return jsonError(mapOcrRejectionCode(verification.rejectionReason), 422);
+      if (action === "verify_start" || action === "verify_end") {
+        logOcrRejected(requestId, verification);
+        logStage(requestId, "server_ocr_rejected_sent_to_review");
+        return NextResponse.json({
+          ok: true,
+          status: "pending_review",
+          detectedReading: null,
+          confidence: verification.confidence,
+        });
+      } else {
+        (verification as any).detectedReading = null;
+      }
+    } else {
+      logStage(requestId, "server_ocr_completed");
+      logStage(requestId, "server_ocr_accepted");
     }
-    logStage(requestId, "server_ocr_completed");
-    logStage(requestId, "server_ocr_accepted");
 
-    const selectedCandidate = verification.candidates.find(c => c.reading === verification.detectedReading) || verification.candidates[0];
+    const selectedCandidate = verification.candidates?.find(c => c.reading === verification.detectedReading) || verification.candidates?.[0];
     
     console.info("[odometer-shift] final_reading_guard", {
       rawDigits: selectedCandidate?.digits,
@@ -212,7 +222,7 @@ export async function POST(request: Request) {
       signals: selectedCandidate?.signals
     });
 
-    if (selectedCandidate && selectedCandidate.classification !== "ODOMETER") {
+    if (verification.accepted && selectedCandidate && selectedCandidate.classification !== "ODOMETER") {
       const isStrongFallback = 
         selectedCandidate.classification === "UNKNOWN" && 
         (selectedCandidate.signals.independentOccurrences >= 2 || 
@@ -220,8 +230,16 @@ export async function POST(request: Request) {
          selectedCandidate.signals.firstReadingSingleCandidateCorroborated === true);
         
       if (!isStrongFallback) {
-        await cleanupPhoto(photoPath, admin);
-        return jsonError("ambiguous", 422);
+        if (action === "verify_start" || action === "verify_end") {
+          return NextResponse.json({
+            ok: true,
+            status: "pending_review",
+            detectedReading: null,
+            confidence: verification.confidence,
+          });
+        } else {
+          (verification as any).detectedReading = null;
+        }
       }
     }
 
@@ -324,8 +342,8 @@ async function startShift({
     vehicle_number: string | null;
   };
   vehicle: { id: string; plate_number: string | null } | null;
-  reading: number;
-  verification: Extract<OdometerVerificationResult, { accepted: true }>;
+  reading: number | null;
+  verification: OdometerVerificationResult;
   photoPath: string;
   photoCapturedAt: string;
   supabase: SupabaseAdminClient;
@@ -357,9 +375,9 @@ async function startShift({
     start_photo_captured_at: photoCapturedAt,
     start_ocr_confidence: verification.confidence,
     start_ocr_provider: "tesseract.js",
-    start_ocr_reading: verification.rawDigits,
-    start_review_status: "pending_review",
-    start_verified_at: new Date().toISOString(),
+    start_ocr_reading: verification.accepted ? verification.rawDigits : undefined,
+    start_review_status: reading === null ? "pending_review" : undefined,
+    start_verified_at: reading !== null ? new Date().toISOString() : undefined,
   };
 
   const { data, error } = await supabase
@@ -383,8 +401,8 @@ async function endShift({
 }: {
   driverId: string;
   organizationId: string;
-  reading: number;
-  verification: Extract<OdometerVerificationResult, { accepted: true }>;
+  reading: number | null;
+  verification: OdometerVerificationResult;
   photoPath: string;
   photoCapturedAt: string;
   supabase: SupabaseAdminClient;
@@ -411,7 +429,7 @@ async function endShift({
     throw new Error("SHIFT_NO_OPEN_SHIFT");
   }
   
-  if (reading < openShift.start_odometer_reading) throw new Error("SHIFT_END_BELOW_START");
+  if (reading !== null && openShift.start_odometer_reading !== null && reading < openShift.start_odometer_reading) throw new Error("SHIFT_END_BELOW_START");
 
   const update: DriverShiftUpdate = {
     status: "completed",
@@ -421,9 +439,9 @@ async function endShift({
     end_photo_captured_at: photoCapturedAt,
     end_ocr_confidence: verification.confidence,
     end_ocr_provider: "tesseract.js",
-    end_ocr_reading: verification.rawDigits,
-    end_review_status: "pending_review",
-    end_verified_at: new Date().toISOString(),
+    end_ocr_reading: verification.accepted ? verification.rawDigits : undefined,
+    end_review_status: reading === null ? "pending_review" : undefined,
+    end_verified_at: reading !== null ? new Date().toISOString() : undefined,
   };
 
   const { data, error } = await supabase

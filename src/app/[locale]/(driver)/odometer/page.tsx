@@ -82,7 +82,7 @@ export default async function HomeRoute({ params, searchParams }: HomeRouteProps
                   {displayedShift.end_review_status ? (
                     <Info label={t("endReviewStatus")} value={t(`reviewStatuses.${displayedShift.end_review_status}`)} />
                   ) : null}
-                  <Info label={t("distance")} value={formatNumber((displayedShift.end_odometer_reading ?? 0) - displayedShift.start_odometer_reading)} />
+                  <Info label={t("distance")} value={displayedShift.end_odometer_reading !== null && displayedShift.start_odometer_reading !== null ? formatNumber(displayedShift.end_odometer_reading - displayedShift.start_odometer_reading) : "-"} />
                 </>
               ) : null}
             </dl>
