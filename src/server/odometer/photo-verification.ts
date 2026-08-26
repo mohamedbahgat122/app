@@ -199,13 +199,71 @@ export async function verifyOdometerPhoto({
     }
 
     // ------------------------------------------------------------------
+    // Classify candidate numeric context
+    // ------------------------------------------------------------------
+    const validCandidates: RawCandidate[] = [];
+    for (const c of ocrResult.candidates) {
+      if (c.rejectedContext) continue;
+
+      let classification = "UNKNOWN";
+      let rejectedReason = "";
+
+      const before = c.contextBefore || "";
+      const after = c.contextAfter || "";
+      const ctx = `${before}${c.digits}${after}`; // Reconstruct full local context just for logging
+
+      if (
+        /(?:x\s*|×\s*|rpm\s*|r\/min\s*|rev\/min\s*|1\/min\s*)$/i.test(before) || 
+        /^\s*(?:rpm|r\/min|rev\/min|1\/min)/i.test(after)
+      ) {
+        classification = "RPM";
+        rejectedReason = "rpm_multiplier";
+      } else if (
+        /^\s*(?:km\/h|kmh|kph|mph)/i.test(after)
+      ) {
+        classification = "SPEED";
+        rejectedReason = "speed_indicator";
+      } else if (
+        /(?:temp|degrees)\s*$/i.test(before) || 
+        /^\s*(?:°|deg)?\s*[cf]\b/i.test(after)
+      ) {
+        classification = "TEMPERATURE";
+        rejectedReason = "temperature";
+      } else if (
+        /(?:time|clock)\s*$/i.test(before)
+      ) {
+        classification = "CLOCK";
+        rejectedReason = "clock";
+      } else if (
+        /(?:odo|odometer|total|mileage)\s*$/i.test(before) ||
+        /^\s*(?:km|mi\b|odo|odometer|total|mileage)/i.test(after)
+      ) {
+        classification = "ODOMETER";
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[odometer-photo-ocr] candidate_context", {
+          rawDigits: c.digits,
+          classification,
+          nearbyText: ctx,
+          anchor: c.hasOdometerAnchor,
+          rejectedReason: rejectedReason || undefined,
+        });
+      }
+
+      if (!rejectedReason) {
+        validCandidates.push(c);
+      }
+    }
+
+    // ------------------------------------------------------------------
     // Score and rank candidates
     // ------------------------------------------------------------------
     candidates = scoreCandidates({
       action,
       currentShiftStartReading,
       previousReading,
-      rawCandidates: ocrResult.candidates,
+      rawCandidates: validCandidates,
     });
   } catch (error) {
     if (process.env.NODE_ENV !== "production") {

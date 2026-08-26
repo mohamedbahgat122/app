@@ -17,6 +17,8 @@ export type OcrRawCandidate = {
   hasOdometerAnchor: boolean;
   rejectedContext:   boolean;
   centerBias:        number;
+  contextBefore:     string;
+  contextAfter:      string;
 };
 
 export type OcrChildResult =

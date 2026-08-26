@@ -78,17 +78,8 @@ function isPlausibleOdometerDigits(digits) {
 }
 
 function looksLikeNonOdometerNumber(raw, ctx) {
-  // Reject clock patterns (12:34)
-  if (/\d{1,2}:\d{2}/u.test(ctx)) return true;
-  // Reject speed units and explicit temperature-like patterns.
-  // NOTE: c\b alone is too broad — it matches the C in "34C".
-  // Require a digit immediately before C/F so that "34C" (temperature) is
-  // rejected but "084649km" (odometer) is NOT rejected just because a
-  // temperature reading appears elsewhere in the same OCR text block.
-  if (/(temp|trip|rpm|km\/h|kph|mph|degrees)/iu.test(ctx)) return true;
-  if (/\d+\s*[cf]\b/iu.test(ctx) && !/\d+\s*km/iu.test(ctx)) return true;
-  const digits = raw.replace(/[^\d]/g, "");
-  if (digits.length <= 3) return true;
+  // We will now handle all context rejection in the main process (photo-verification.ts)
+  // to allow for better logging and generic fleet rules.
   return false;
 }
 
@@ -121,8 +112,10 @@ function extractDigitCandidates(text, confidence, source, centerBias) {
         confidence: Math.min(100, Math.max(0, Math.round(confidence))),
         source,
         hasOdometerAnchor: pat.anchor,
-        rejectedContext:   looksLikeNonOdometerNumber(raw, ctx),
+        rejectedContext:   looksLikeNonOdometerNumber(raw, ctx), // Now always false
         centerBias,
+        contextBefore:     before,
+        contextAfter:      after,
       });
     }
   }
