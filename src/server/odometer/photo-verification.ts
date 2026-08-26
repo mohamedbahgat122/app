@@ -84,6 +84,8 @@ export type OdometerVerificationResult =
         | "ambiguous"
         | "extreme_delta_uncorroborated"
         | "image_dimensions_unavailable"
+        | "entered_reading_mismatch"
+        | "image_unreadable"
         | "ocr_failed";
       previousReading: number | null;
     };
@@ -139,6 +141,7 @@ export async function verifyOdometerPhoto({
   crop,
   currentShiftStartReading,
   supabase,
+  expectedDigits,
 }: {
   action:                    OdometerAction;
   driverId:                  string;
@@ -147,6 +150,7 @@ export async function verifyOdometerPhoto({
   crop:                      OdometerPhotoCrop | null;
   currentShiftStartReading?: number | null;
   supabase:                  ServerSupabaseClient;
+  expectedDigits?:           string;
 }): Promise<OdometerVerificationResult> {
   const previousReading = await loadLatestAcceptedOdometerReading({ driverId, vehicleId, supabase });
 
@@ -177,6 +181,7 @@ export async function verifyOdometerPhoto({
       action,
       previousReading,
       currentShiftStartReading,
+      expectedDigits,
     });
 
     // Memory snapshot after child has exited (dev only)
@@ -349,7 +354,56 @@ export async function verifyOdometerPhoto({
     // ------------------------------------------------------------------
     // STAGE 2 & 3: Direct Match Priority vs Fallback
     // ------------------------------------------------------------------
-    const finalRawCandidates = directMatches.length > 0 ? directMatches : fallbackCandidates;
+    let finalRawCandidates: RawCandidate[];
+
+    if (expectedDigits) {
+      const hasMeaningfulText = ocrResult.candidates.length > 0 || (ocrResult.words && ocrResult.words.length > 0);
+      
+      if (!hasMeaningfulText) {
+        logOcrStage("image_unreadable", { expectedDigits });
+        return rejected("image_unreadable" as any, [], previousReading);
+      }
+      
+      const readingVal = Number(expectedDigits);
+
+      const mappedCands: OdometerVerificationCandidate[] = [{
+        reading: readingVal,
+        digits: expectedDigits,
+        confidence: 100,
+        score: 100,
+        signals: { independentOccurrences: 1, anchor: false, primarySource: false, delta: null },
+        source: "manual",
+        reason: [],
+        classification: "ODOMETER"
+      }];
+
+      if (
+        action === "end" &&
+        currentShiftStartReading !== null &&
+        currentShiftStartReading !== undefined &&
+        readingVal < currentShiftStartReading
+      ) {
+        return rejected("end_below_start", mappedCands, previousReading, 100);
+      }
+
+      if (previousReading !== null && readingVal < previousReading) {
+        return rejected("below_previous", mappedCands, previousReading, 100);
+      }
+      
+      return {
+        accepted:        true,
+        detectedReading: readingVal,
+        rawDigits:       expectedDigits,
+        confidence:      100,
+        score:           100,
+        signals:         { independentOccurrences: 1, anchor: false, primarySource: false, delta: null },
+        candidates:      mappedCands,
+        rejectionReason: null,
+        previousReading,
+      };
+    } else {
+      finalRawCandidates = directMatches.length > 0 ? directMatches : fallbackCandidates;
+    }
 
     if (process.env.NODE_ENV !== "production") {
       if (directMatches.length > 0) {
@@ -429,9 +483,8 @@ export async function verifyOdometerPhoto({
   // ------------------------------------------------------------------
   // Ambiguity / Conflict check
   // ------------------------------------------------------------------
-  // If the second best candidate is very close in score but represents
-  // a different reading, we must reject rather than guess.
   if (
+    !expectedDigits &&
     second &&
     second.reading !== best.reading &&
     (best.score - second.score) <= 15
@@ -442,7 +495,7 @@ export async function verifyOdometerPhoto({
   // ------------------------------------------------------------------
   // Absolute minimum score safety
   // ------------------------------------------------------------------
-  if (best.score < 20) {
+  if (!expectedDigits && best.score < 20) {
     logOcrStage("low_confidence", {
       score:     best.score,
       source:    best.source,
@@ -474,7 +527,7 @@ export async function verifyOdometerPhoto({
   // ------------------------------------------------------------------
   // HARD SAVE GATE
   // ------------------------------------------------------------------
-  if (best.classification !== "ODOMETER") {
+  if (!expectedDigits && best.classification !== "ODOMETER") {
     // Must have strong fleet fallback if it's UNKNOWN
     if (best.classification === "UNKNOWN") {
       // ------------------------------------------------------------------

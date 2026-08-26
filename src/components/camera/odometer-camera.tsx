@@ -11,20 +11,15 @@ type FacingMode = "environment" | "user";
 
 type OdometerCameraProps = {
   onClose: () => void;
-  onVerifyPhoto: (
-    blob: Blob,
-    capturedAt: string
-  ) => Promise<{ reading: string | null; path: string; error?: string }>;
   onUsePhoto: (
     blob: Blob,
     capturedAt: string,
-    previewUrl: string,
-    serverPath: string
+    previewUrl: string
   ) => void;
-  onRetake?: (serverPath: string) => void;
+  onRetake?: () => void;
 };
 
-export function OdometerCamera({ onClose, onVerifyPhoto, onUsePhoto, onRetake }: OdometerCameraProps) {
+export function OdometerCamera({ onClose, onUsePhoto, onRetake }: OdometerCameraProps) {
   const t = useTranslations("Camera");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const guideRef = useRef<HTMLDivElement | null>(null);
@@ -45,10 +40,6 @@ export function OdometerCamera({ onClose, onVerifyPhoto, onUsePhoto, onRetake }:
     url: string;
     serverPath?: string;
   } | null>(null);
-  
-  const [verifyStatus, setVerifyStatus] = useState<"idle" | "verifying" | "success" | "error">("idle");
-  const [detectedReading, setDetectedReading] = useState<string | null>(null);
-
   const [facingMode, setFacingMode] = useState<FacingMode>("environment");
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchEnabled, setTorchEnabled] = useState(false);
@@ -352,38 +343,17 @@ export function OdometerCamera({ onClose, onVerifyPhoto, onUsePhoto, onRetake }:
     });
     setStatus("captured");
     setIsFinalizing(false);
-    
-    // Start verification immediately
-    setVerifyStatus("verifying");
-    setDetectedReading(null);
-    console.info("[odometer-camera] verify_request_started", { blobSize: blob.size });
-    onVerifyPhoto(blob, capturedAt).then(({ reading, path, error }) => {
-      console.info("[odometer-camera] verify_response", { reading, path, error });
-      if (error || !reading) {
-        setVerifyStatus("error");
-        setErrorKey(error ?? "unreadable");
-        if (path) {
-          setCapture(prev => prev ? { ...prev, serverPath: path } : null);
-        }
-      } else {
-        setVerifyStatus("success");
-        setDetectedReading(reading);
-        setCapture(prev => prev ? { ...prev, serverPath: path } : null);
-      }
-    });
   }
 
   function retake() {
     if (capture?.url) {
       URL.revokeObjectURL(capture.url);
     }
-    if (capture?.serverPath && onRetake) {
-      onRetake(capture.serverPath);
+    if (onRetake) {
+      onRetake();
     }
     
     setCapture(null);
-    setVerifyStatus("idle");
-    setDetectedReading(null);
     setDetectionStatus("idle");
     setErrorKey(null);
     autoCaptureLockedRef.current = false;
@@ -397,8 +367,8 @@ export function OdometerCamera({ onClose, onVerifyPhoto, onUsePhoto, onRetake }:
     if (capture?.url) {
       URL.revokeObjectURL(capture.url);
     }
-    if (capture?.serverPath && onRetake) {
-      onRetake(capture.serverPath);
+    if (onRetake) {
+      onRetake();
     }
     onClose();
   }
@@ -552,16 +522,7 @@ export function OdometerCamera({ onClose, onVerifyPhoto, onUsePhoto, onRetake }:
         <div className="space-y-3 p-4 pb-[calc(16px+env(safe-area-inset-bottom))] shrink-0">
           <p className="text-center text-xs font-medium text-white/80">
             {status === "captured" ? (
-              verifyStatus === "verifying" ? (
-                "جاري قراءة العداد..."
-              ) : verifyStatus === "success" ? (
-                <>
-                  <span className="block mb-1 text-emerald-400">تم تحديد قراءة العداد</span>
-                  <span className="text-lg font-bold text-white">{detectedReading} كم</span>
-                </>
-              ) : (
-                <span className="text-amber-400">{t(`errors.${errorKey ?? "unreadable"}`)}</span>
-              )
+              "هل العداد واضح في هذه الصورة؟"
             ) : (
               "صوّر لوحة العدادات كاملة وبوضوح"
             )}
@@ -574,11 +535,8 @@ export function OdometerCamera({ onClose, onVerifyPhoto, onUsePhoto, onRetake }:
               </button>
               <button
                 type="button"
-                disabled={verifyStatus !== "success" || !capture.serverPath}
                 onClick={() => {
-                  if (capture.serverPath) {
-                    onUsePhoto(capture.blob, capture.capturedAt, capture.url, capture.serverPath);
-                  }
+                  onUsePhoto(capture.blob, capture.capturedAt, capture.url);
                 }}
                 className="min-h-12 rounded-[0.85rem] bg-primary px-4 text-sm font-semibold [touch-action:manipulation] disabled:opacity-50"
               >

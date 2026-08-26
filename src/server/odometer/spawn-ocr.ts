@@ -35,12 +35,14 @@ export async function spawnOcrChild({
   action,
   previousReading,
   currentShiftStartReading,
+  expectedDigits,
 }: {
   image:                     Buffer;
   crop:                      { x: number; y: number; width: number; height: number } | null;
   action:                    "start" | "end";
   previousReading:           number | null;
   currentShiftStartReading?: number | null;
+  expectedDigits?:           string;
 }): Promise<OcrChildResult> {
   const { existsSync } = await import("node:fs");
   if (!existsSync(OCR_WORKER_PATH)) {
@@ -59,6 +61,7 @@ export async function spawnOcrChild({
       action,
       previousReading,
       currentShiftStartReading: currentShiftStartReading ?? null,
+      expectedDigits,
     });
 
     return await runChildProcess(childInput);

@@ -12,6 +12,7 @@ type CapturedPhoto = {
   blob: Blob;
   capturedAt: string;
   url: string;
+  serverPath?: string;
 };
 
 type ShiftActionCardProps = {
@@ -46,6 +47,7 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
   const router = useRouter();
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
+  const [enteredReading, setEnteredReading] = useState("");
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [serverErrorMessage, setServerErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -71,54 +73,7 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
     };
   }, []);
 
-  async function handleVerifyPhoto(blob: Blob, capturedAt: string) {
-    let path = "";
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { reading: null, path: "", error: "sessionExpired" };
 
-      const captureId = crypto.randomUUID();
-      path = `${user.id}/${captureId}/${mode}.jpg`;
-      const upload = await supabase.storage
-        .from("driver-odometer")
-        .upload(path, blob, {
-          cacheControl: "3600",
-          contentType: "image/jpeg",
-          upsert: false,
-        });
-
-      if (upload.error) return { reading: null, path: "", error: "uploadFailed" };
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 35_000);
-
-      const response = await fetch("/api/driver-odometer/shift", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          action: `verify_${mode}`,
-          photoPath: path,
-          photoCapturedAt: capturedAt,
-        }),
-      });
-
-      clearTimeout(timeoutId);
-
-      const result = await response.json().catch(() => null) as OdometerShiftResponse | null;
-      if (!result) return { reading: null, path, error: "saveFailed" };
-
-      if (!response.ok || result.ok === false) {
-        const errorCode = "code" in result ? result.code : undefined;
-        return { reading: null, path, error: mapShiftError(errorCode ?? "") };
-      }
-
-      return { reading: String(result.detectedReading), path, error: undefined };
-    } catch (error) {
-      return { reading: null, path, error: "networkFailed" };
-    }
-  }
 
   async function handleRetakePhoto(serverPath: string) {
     try {
@@ -132,8 +87,7 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
   function acceptPhoto(
     blob: Blob,
     capturedAt: string,
-    url: string,
-    serverPath: string,
+    url: string
   ) {
     const capturedPhoto = { blob, capturedAt, url };
     setPhoto(capturedPhoto);
@@ -141,16 +95,55 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
     setErrorKey(null);
     setServerErrorMessage(null);
     setSuccess(null);
-    void submitShift(capturedPhoto, serverPath);
+    setEnteredReading("");
   }
 
-  async function submitShift(capturedPhoto: CapturedPhoto, serverPath: string) {
-    if (isSaving) return;
+  async function submitShift(capturedPhoto: CapturedPhoto) {
+    if (isSaving || !enteredReading.trim()) return;
 
     setIsSaving(true);
     setErrorKey(null);
     setServerErrorMessage(null);
-    setStepKey("saving");
+    
+    let path = capturedPhoto.serverPath;
+    
+    if (!path) {
+      setStepKey("uploading");
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setErrorKey("sessionExpired");
+          setIsSaving(false);
+          setStepKey(null);
+          return;
+        }
+
+        const captureId = crypto.randomUUID();
+        path = `${user.id}/${captureId}/${mode}.jpg`;
+        const upload = await supabase.storage
+          .from("driver-odometer")
+          .upload(path, capturedPhoto.blob, {
+            cacheControl: "3600",
+            contentType: "image/jpeg",
+            upsert: false,
+          });
+
+        if (upload.error) {
+          setErrorKey("uploadFailed");
+          setIsSaving(false);
+          setStepKey(null);
+          return;
+        }
+        
+        setPhoto(prev => prev ? { ...prev, serverPath: path } : null);
+      } catch (error) {
+        setErrorKey("networkFailed");
+        setIsSaving(false);
+        setStepKey(null);
+        return;
+      }
+    }
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -166,8 +159,9 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
         signal: controller.signal,
         body: JSON.stringify({
           action: mode,
-          photoPath: serverPath,
+          photoPath: path,
           photoCapturedAt: capturedPhoto.capturedAt,
+          enteredOdometerReading: enteredReading,
         }),
       });
 
@@ -217,7 +211,7 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
         for (let i = 0; i < 3; i++) {
           try {
             const check = await fetch(
-              `/api/driver-odometer/shift?action=${mode}&photoPath=${encodeURIComponent(serverPath)}`,
+              `/api/driver-odometer/shift?action=${mode}&photoPath=${encodeURIComponent(path!)}`,
               { method: "GET" }
             );
             if (check.ok) {
@@ -266,6 +260,7 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
       URL.revokeObjectURL(photo.url);
     }
     setPhoto(null);
+    setEnteredReading("");
     setErrorKey(null);
     setServerErrorMessage(null);
     setSuccess(null);
@@ -290,6 +285,26 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
               <img src={photo.url} alt={t("capturedPhoto")} className="max-h-56 w-full object-contain" />
             </div>
 
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-foreground">
+                اكتب قراءة العداد كما تظهر في الصورة
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={enteredReading}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const normalizedStr = raw.replace(/[٠-٩۰-۹]/g, (d) => String("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹".indexOf(d) % 10)).replace(/[^\d]/g, "");
+                  setEnteredReading(normalizedStr);
+                }}
+                className="w-full rounded-[0.85rem] border border-border bg-background px-4 py-3 text-lg font-bold placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="مثال: 25433"
+                dir="ltr"
+                disabled={isSaving || !!success}
+              />
+            </div>
+
             {isSaving ? (
               <p className="rounded-[0.85rem] border border-primary/20 bg-primary-soft px-3 py-2 text-center text-sm font-semibold text-primary">
                 {t(`steps.${stepKey ?? "reading"}`)}
@@ -306,14 +321,42 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
               </p>
             ) : null}
 
-            {!isSaving && (errorKey || serverErrorMessage) ? (
-              <button
-                type="button"
-                onClick={retake}
-                className="min-h-12 w-full rounded-[0.85rem] bg-primary px-4 text-sm font-semibold text-white [touch-action:manipulation]"
-              >
-                {t("retake")}
-              </button>
+            {!isSaving && !success && (errorKey || serverErrorMessage) ? (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={retake}
+                  className="min-h-12 w-full rounded-[0.85rem] bg-secondary px-4 text-sm font-semibold text-secondary-foreground [touch-action:manipulation]"
+                >
+                  {t("retake")}
+                </button>
+                <button
+                  type="button"
+                  disabled={!enteredReading.trim()}
+                  onClick={() => submitShift(photo)}
+                  className="min-h-12 w-full rounded-[0.85rem] bg-primary px-4 text-sm font-semibold text-white [touch-action:manipulation] disabled:opacity-50"
+                >
+                  تحقق وحفظ
+                </button>
+              </div>
+            ) : !isSaving && !success ? (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={retake}
+                  className="min-h-12 w-full rounded-[0.85rem] bg-secondary px-4 text-sm font-semibold text-secondary-foreground [touch-action:manipulation]"
+                >
+                  {t("retake")}
+                </button>
+                <button
+                  type="button"
+                  disabled={!enteredReading.trim()}
+                  onClick={() => submitShift(photo)}
+                  className="min-h-12 w-full rounded-[0.85rem] bg-primary px-4 text-sm font-semibold text-white [touch-action:manipulation] disabled:opacity-50"
+                >
+                  تحقق وحفظ
+                </button>
+              </div>
             ) : null}
           </>
         )}
@@ -338,9 +381,7 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
       {isCameraOpen ? (
         <OdometerCamera
           onClose={() => setIsCameraOpen(false)}
-          onVerifyPhoto={handleVerifyPhoto}
           onUsePhoto={acceptPhoto}
-          onRetake={handleRetakePhoto}
         />
       ) : null}
     </section>
@@ -361,16 +402,22 @@ function mapShiftError(message: string) {
   if (message.includes("no_vehicle") || message.includes("noVehicle") || message.includes("SHIFT_VEHICLE_UNAVAILABLE")) {
     return "noVehicle";
   }
-  if (message.includes("invalid_reading") || message.includes("invalidReading") || message.includes("SHIFT_INVALID_READING")) {
-    return "invalidReading";
+  if (message.includes("invalid_input") || message.includes("invalid_reading") || message.includes("invalidReading") || message.includes("SHIFT_INVALID_READING")) {
+    return "invalidInput";
   }
+  if (message.includes("image_unreadable")) {
+    return "imageUnreadable";
+  }
+
   if (
     message.includes("odometer_unverified") ||
-    message.includes("reading_below_previous") ||
     message.includes("low_confidence") ||
     message.includes("no_candidate")
   ) {
     return "unreadable";
+  }
+  if (message.includes("reading_below_previous") || message.includes("below_previous")) {
+    return "readingBelowPrevious";
   }
   if (message.includes("session_expired") || message.includes("sessionExpired") || message.includes("SHIFT_AUTH_REQUIRED")) {
     return "sessionExpired";
@@ -391,7 +438,9 @@ function isRetakeOnlyError(code: string | undefined) {
   return (
     code === "odometer_unverified" ||
     code === "reading_below_previous" ||
-    code === "invalid_photo"
+    code === "invalid_photo" ||
+    code === "image_unreadable" ||
+    code === "invalid_input"
   );
 }
 

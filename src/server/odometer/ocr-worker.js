@@ -51,7 +51,11 @@ function normalizeOcrText(text, preserveO) {
   }).join("");
 }
 
-function isPlausibleOdometerDigits(digits) {
+function isPlausibleOdometerDigits(digits, expectedDigits) {
+  if (expectedDigits) {
+    const numericStr = String(Number(expectedDigits));
+    return digits === expectedDigits || digits === numericStr;
+  }
   if (digits.length < MIN_DIGITS || digits.length > MAX_DIGITS) return false;
   if (/^0+$/u.test(digits)) return false;
   const v = Number(digits);
@@ -62,7 +66,7 @@ function looksLikeNonOdometerNumber(raw, ctx) {
   return false;
 }
 
-function extractDigitCandidates(text, confidence, source, centerBias, bbox) {
+function extractDigitCandidates(text, confidence, source, centerBias, bbox, expectedDigits) {
   const norm    = normalizeOcrText(text, false);
   const normAnc = normalizeOcrText(text, true);
   const results = [];
@@ -72,11 +76,16 @@ function extractDigitCandidates(text, confidence, source, centerBias, bbox) {
     { re: /(?<!\d)(?:\d{1,3}(?:[\s,.]\d{3}){1,3})(?!\d)/gu,                  anchor: false, t: norm    },
     { re: /(?<!\d)\d{4,9}(?!\d)/gu,                                            anchor: false, t: norm    },
   ];
+  if (expectedDigits) {
+    const numericStr = String(Number(expectedDigits));
+    const patStr = numericStr !== expectedDigits ? `(?<!\\d)(?:${expectedDigits}|${numericStr})(?!\\d)` : `(?<!\\d)${expectedDigits}(?!\\d)`;
+    patterns.push({ re: new RegExp(patStr, "gu"), anchor: false, t: norm });
+  }
   for (const pat of patterns) {
     for (const m of pat.t.matchAll(pat.re)) {
       const raw    = m[1] ?? m[0];
       const digits = raw.replace(/[^\d]/g, "");
-      if (!isPlausibleOdometerDigits(digits)) continue;
+      if (!isPlausibleOdometerDigits(digits, expectedDigits)) continue;
       const idx    = m.index ?? 0;
       const before = pat.t.slice(Math.max(0, idx - 18), idx);
       const after  = pat.t.slice(idx + m[0].length, idx + m[0].length + 18);
@@ -97,7 +106,7 @@ function extractDigitCandidates(text, confidence, source, centerBias, bbox) {
   return results;
 }
 
-async function runPass(worker, imgBuf, source, centerBias, log) {
+async function runPass(worker, imgBuf, source, centerBias, log, expectedDigits) {
   log.push({ stage: "pass_started", source });
   let recData;
   try {
@@ -117,18 +126,18 @@ async function runPass(worker, imgBuf, source, centerBias, log) {
   log.push({ stage: "pass_result", source, confidence, rawText });
   const candidates = [];
   const allWords = [];
-  candidates.push(...extractDigitCandidates(rawText, confidence, source, centerBias, null));
+  candidates.push(...extractDigitCandidates(rawText, confidence, source, centerBias, null, expectedDigits));
   for (const block of recData.blocks ?? []) {
     for (const para of block.paragraphs ?? []) {
       for (const line of para.lines ?? []) {
         const lConf = line.confidence ?? para.confidence ?? block.confidence ?? confidence;
-        candidates.push(...extractDigitCandidates(line.text ?? "", lConf, source + ":line", centerBias, line.bbox));
+        candidates.push(...extractDigitCandidates(line.text ?? "", lConf, source + ":line", centerBias, line.bbox, expectedDigits));
         for (const word of line.words ?? []) {
           const wConf = word.confidence ?? lConf;
           if (word.bbox && word.text && word.text.trim().length > 0) {
             allWords.push({ text: word.text, bbox: word.bbox });
           }
-          candidates.push(...extractDigitCandidates(word.text ?? "", wConf, source + ":word", centerBias, word.bbox));
+          candidates.push(...extractDigitCandidates(word.text ?? "", wConf, source + ":word", centerBias, word.bbox, expectedDigits));
         }
       }
     }
@@ -149,7 +158,7 @@ async function main() {
     process.stderr.write("OCR_WORKER: invalid stdin JSON: " + parseErr.message + "\n");
     process.exit(1);
   }
-  const { imagePath } = input;
+  const { imagePath, expectedDigits } = input;
   if (!imagePath || !fs.existsSync(imagePath)) {
     process.stderr.write("OCR_WORKER: imagePath not found: " + imagePath + "\n");
     process.exit(1);
@@ -164,6 +173,28 @@ async function main() {
   const imgW = meta.width  ?? 0;
   const imgH = meta.height ?? 0;
   log.push({ stage: "image_normalized", width: imgW, height: imgH });
+  
+  if (imgW < 100 || imgH < 100) {
+    log.push({ stage: "image_rejected", reason: "too_small" });
+    process.stdout.write(JSON.stringify({ candidates: [], words: [], log }));
+    process.exit(0);
+  }
+
+  try {
+    const grayStats = await sharp(normalizedBuf, { failOn: "none" }).grayscale().stats();
+    const mean = grayStats.channels[0].mean;
+    const stdev = grayStats.channels[0].stdev;
+    log.push({ stage: "image_stats", mean, stdev });
+
+    if (stdev < 5 || mean < 10) {
+      log.push({ stage: "image_rejected", reason: "blank_or_black" });
+      process.stdout.write(JSON.stringify({ candidates: [], words: [], log }));
+      process.exit(0);
+    }
+  } catch (err) {
+    log.push({ stage: "image_stats_error", error: err.message });
+  }
+
   const worker = await Promise.race([
     createWorker("eng", 1, {
       cacheMethod: "none", corePath: TESSERACT_CORE_PATH, errorHandler: () => undefined,
@@ -195,7 +226,7 @@ async function main() {
     for (const p of passes) {
       log.push({ stage: `starting_${p.id}` });
       const startT = Date.now();
-      const res = await runPass(worker, p.buf, p.id, 0, log);
+      const res = await runPass(worker, p.buf, p.id, 0, log, expectedDigits);
       const durationMs = Date.now() - startT;
       
       passDurations.push({ pass: p.id, durationMs, candidates: res.candidates.length });
@@ -210,23 +241,30 @@ async function main() {
         if (!grouped.has(c.digits)) grouped.set(c.digits, new Set());
         grouped.get(c.digits).add(c.source.split(":")[0]);
       }
-      
-      let clearWinnerCount = 0;
-      let otherPlausibleCount = 0;
-      
-      for (const [digits, sources] of grouped.entries()) {
-        if (digits.length >= 5 && digits.length <= 9) {
-          if (sources.size >= 2) {
-            clearWinnerCount++;
-          } else {
-            otherPlausibleCount++;
+      if (expectedDigits) {
+        const numericStr = String(Number(expectedDigits));
+        if (grouped.has(expectedDigits) || grouped.has(numericStr)) {
+          log.push({ stage: "early_exit_decisive_corroboration_expected", pass: p.id, digits: expectedDigits });
+          break;
+        }
+      } else {
+        let clearWinnerCount = 0;
+        let otherPlausibleCount = 0;
+        
+        for (const [digits, sources] of grouped.entries()) {
+          if (digits.length >= 5 && digits.length <= 9) {
+            if (sources.size >= 2) {
+              clearWinnerCount++;
+            } else {
+              otherPlausibleCount++;
+            }
           }
         }
-      }
-      
-      if (clearWinnerCount === 1 && otherPlausibleCount === 0) {
-         log.push({ stage: "early_exit_decisive_corroboration", pass: p.id });
-         break;
+        
+        if (clearWinnerCount === 1 && otherPlausibleCount === 0) {
+           log.push({ stage: "early_exit_decisive_corroboration", pass: p.id });
+           break;
+        }
       }
     }
 

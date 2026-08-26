@@ -130,7 +130,12 @@
     "errors": {
       "photoRequired": "Odometer photo is required",
       "invalidReading": "Enter a valid odometer reading",
+      "invalidInput": "Enter a valid odometer reading",
       "endBelowStart": "End reading cannot be lower than the start reading",
+      "enteredReadingMismatch": "The entered reading does not match the photo",
+      "imageUnreadable": "The photo is unclear, please retake it",
+      "belowPrevious": "The reading is lower than the last recorded reading for the vehicle",
+      "readingBelowPrevious": "The reading is lower than the last recorded reading for the vehicle",
       "sessionExpired": "Your session has ended. Sign in again.",
       "uploadFailed": "Could not upload the odometer photo. Please try again.",
       "saveFailed": "Could not save duty data. Please try again.",

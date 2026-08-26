@@ -30,6 +30,7 @@ type RequestBody = {
   photoPath?: unknown;
   photoCapturedAt?: unknown;
   photoCrop?: unknown;
+  enteredOdometerReading?: unknown;
 };
 
 export async function GET(request: Request) {
@@ -98,9 +99,7 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => null)) as RequestBody | null;
     const action = 
       body?.action === "start" || 
-      body?.action === "end" || 
-      body?.action === "verify_start" || 
-      body?.action === "verify_end" 
+      body?.action === "end" 
         ? body.action 
         : null;
     photoPath = typeof body?.photoPath === "string" ? body.photoPath : "";
@@ -108,9 +107,15 @@ export async function POST(request: Request) {
       typeof body?.photoCapturedAt === "string" ? body.photoCapturedAt : "";
     const photoCrop = parsePhotoCrop(body?.photoCrop);
 
-    if (!action || !photoPath || !photoCapturedAt) {
-      return jsonError("invalid_request", 400);
+    const rawReading = typeof body?.enteredOdometerReading === "string" ? body.enteredOdometerReading : "";
+    const rawEnteredDigits = rawReading.replace(/[٠-٩۰-۹]/g, (d) => String("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹".indexOf(d) % 10)).replace(/[^\d]/g, "");
+    const numericReading = rawEnteredDigits ? Number(rawEnteredDigits) : null;
+
+    if (!action || !photoPath || !photoCapturedAt || numericReading === null || numericReading < 0 || !Number.isSafeInteger(numericReading) || rawEnteredDigits.length === 0) {
+      return jsonError("invalid_input", 400);
     }
+    
+    const expectedDigits = rawEnteredDigits;
 
     stage = "auth_validated";
     const supabase = await createSupabaseServerClient();
@@ -173,7 +178,7 @@ export async function POST(request: Request) {
     stage = "server_ocr_started";
     logStage(requestId, stage);
     const image = Buffer.from(await data.arrayBuffer());
-    const ocrAction = action === "verify_start" ? "start" : action === "verify_end" ? "end" : action;
+    const ocrAction = action;
 
     const currentShiftStartReading =
       ocrAction === "end"
@@ -192,95 +197,48 @@ export async function POST(request: Request) {
       image,
       supabase: admin,
       vehicleId: driverContext.vehicle?.id ?? null,
+      expectedDigits,
     });
 
     if (!verification.accepted) {
-      if (action === "verify_start" || action === "verify_end") {
-        logOcrRejected(requestId, verification);
-        logStage(requestId, "server_ocr_rejected_sent_to_review");
-        return NextResponse.json({
-          ok: true,
-          status: "pending_review",
-          detectedReading: null,
-          confidence: verification.confidence,
-        });
-      } else {
-        (verification as any).detectedReading = null;
-      }
-    } else {
-      logStage(requestId, "server_ocr_completed");
-      logStage(requestId, "server_ocr_accepted");
+      logOcrRejected(requestId, verification as any);
+      logStage(requestId, "server_ocr_rejected");
+      return jsonError(mapOcrRejectionCode(verification.rejectionReason as any), 400);
     }
 
-    const selectedCandidate = verification.candidates?.find(c => c.reading === verification.detectedReading) || verification.candidates?.[0];
-    
-    console.info("[odometer-shift] final_reading_guard", {
-      rawDigits: selectedCandidate?.digits,
-      numericReading: selectedCandidate?.reading,
-      classification: selectedCandidate?.classification,
-      anchor: selectedCandidate?.signals.anchor,
-      signals: selectedCandidate?.signals
-    });
-
-    if (verification.accepted && selectedCandidate && selectedCandidate.classification !== "ODOMETER") {
-      const isStrongFallback = 
-        selectedCandidate.classification === "UNKNOWN" && 
-        (selectedCandidate.signals.independentOccurrences >= 2 || 
-         selectedCandidate.signals.historyCorroborated === true ||
-         selectedCandidate.signals.firstReadingSingleCandidateCorroborated === true);
-        
-      if (!isStrongFallback) {
-        if (action === "verify_start" || action === "verify_end") {
-          return NextResponse.json({
-            ok: true,
-            status: "pending_review",
-            detectedReading: null,
-            confidence: verification.confidence,
-          });
-        } else {
-          (verification as any).detectedReading = null;
-        }
-      }
-    }
-
-    if (action === "verify_start" || action === "verify_end") {
-      logStage(requestId, "response_sent");
-      return NextResponse.json({
-        ok: true,
-        detectedReading: verification.detectedReading,
-        confidence: verification.confidence,
-        status: "verified",
-      });
-    }
+    logStage(requestId, "server_ocr_completed");
+    logStage(requestId, "server_ocr_accepted");
 
     const shift =
       action === "start"
         ? await startShift({
             driver: driverContext.driver,
             vehicle: driverContext.vehicle,
-            reading: verification.detectedReading,
+            reading: numericReading,
             verification,
             photoPath,
             photoCapturedAt,
             supabase: admin,
+            expectedDigits,
           })
         : await endShift({
             driverId: driverContext.driver.id,
             organizationId: driverContext.driver.organization_id,
-            reading: verification.detectedReading,
+            reading: numericReading,
             verification,
             photoPath,
             photoCapturedAt,
             supabase: admin,
+            expectedDigits,
           });
 
     stage = "shift_saved";
     logStage(requestId, stage);
 
     if (action === "start") {
-      console.info("[odometer-shift] shift_start_saved", { shiftId: shift.id, reading: verification.detectedReading });
+      console.info("[odometer-shift] shift_start_saved", { shiftId: shift.id, reading: numericReading });
     } else {
-      console.info("[odometer-shift] shift_end_saved", { shiftId: shift.id, reading: verification.detectedReading });
+      console.info("[odometer-shift] shift_end_saved", { shiftId: shift.id, reading: numericReading });
     }
 
     await recordActivity({
@@ -312,7 +270,7 @@ export async function POST(request: Request) {
       ok: true,
       status: "pending_review",
       reviewStatus: "pending_review",
-      detectedReading: verification.detectedReading,
+      detectedReading: numericReading,
       confidence: verification.confidence,
       shift,
     });
@@ -334,6 +292,7 @@ async function startShift({
   photoPath,
   photoCapturedAt,
   supabase,
+  expectedDigits,
 }: {
   driver: {
     id: string;
@@ -347,6 +306,7 @@ async function startShift({
   photoPath: string;
   photoCapturedAt: string;
   supabase: SupabaseAdminClient;
+  expectedDigits?: string;
 }) {
   const { data: existing } = await supabase
     .from("driver_shifts")
@@ -374,8 +334,7 @@ async function startShift({
     start_photo_path: photoPath,
     start_photo_captured_at: photoCapturedAt,
     start_ocr_confidence: verification.confidence,
-    start_ocr_provider: "tesseract.js",
-    start_ocr_reading: verification.accepted ? verification.rawDigits : undefined,
+    start_ocr_reading: verification.accepted ? expectedDigits : undefined,
     start_review_status: reading === null ? "pending_review" : undefined,
     start_verified_at: reading !== null ? new Date().toISOString() : undefined,
   };
@@ -398,6 +357,7 @@ async function endShift({
   photoPath,
   photoCapturedAt,
   supabase,
+  expectedDigits,
 }: {
   driverId: string;
   organizationId: string;
@@ -406,6 +366,7 @@ async function endShift({
   photoPath: string;
   photoCapturedAt: string;
   supabase: SupabaseAdminClient;
+  expectedDigits?: string;
 }) {
   const { data: openShift } = await supabase
     .from("driver_shifts")
@@ -438,8 +399,7 @@ async function endShift({
     end_photo_path: photoPath,
     end_photo_captured_at: photoCapturedAt,
     end_ocr_confidence: verification.confidence,
-    end_ocr_provider: "tesseract.js",
-    end_ocr_reading: verification.accepted ? verification.rawDigits : undefined,
+    end_ocr_reading: verification.accepted ? expectedDigits : undefined,
     end_review_status: reading === null ? "pending_review" : undefined,
     end_verified_at: reading !== null ? new Date().toISOString() : undefined,
   };
@@ -586,8 +546,9 @@ function mapOcrRejectionCode(
   reason: Extract<OdometerVerificationResult, { accepted: false }>["rejectionReason"],
 ) {
   if (reason === "end_below_start") return "end_below_start";
-  if (reason === "below_previous") return "reading_below_previous";
-  if (reason === "image_dimensions_unavailable" || reason === "ocr_failed") {
+  if (reason === "entered_reading_mismatch") return "entered_reading_mismatch";
+  if (reason === "image_unreadable") return "image_unreadable";
+  if (reason === "image_dimensions_unavailable" || reason === "ocr_failed" || reason === "no_candidate") {
     return "invalid_photo";
   }
 
@@ -677,14 +638,20 @@ function messageForCode(code: string) {
   if (code === "supabase_configuration_missing") {
     return "تعذر تشغيل خدمة الخادم حاليًا.";
   }
-  if (code === "invalid_reading") {
+  if (code === "image_unreadable") {
+    return "الصورة غير واضحة، أعد التصوير";
+  }
+  if (code === "invalid_reading" || code === "invalid_input") {
     return "أدخل قراءة عداد صحيحة.";
+  }
+  if (code === "entered_reading_mismatch") {
+    return "الرقم المكتوب غير مطابق لقراءة العداد في الصورة";
   }
   if (code === "odometer_unverified") {
     return "تعذر التحقق من قراءة العداد";
   }
-  if (code === "reading_below_previous") {
-    return "قراءة العداد أقل من آخر قراءة معتمدة.";
+  if (code === "below_previous" || code === "reading_below_previous") {
+    return "القراءة أقل من آخر قراءة مسجلة للمركبة";
   }
   if (code === "no_open_shift") {
     return "لا توجد بداية دوام مسجلة لهذا اليوم.";
