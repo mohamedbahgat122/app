@@ -50,7 +50,7 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [serverErrorMessage, setServerErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [stepKey, setStepKey] = useState<"uploading" | "reading" | "saving" | null>(null);
+  const [stepKey, setStepKey] = useState<"uploading" | "reading" | "saving" | "reconciling" | null>(null);
   const [success, setSuccess] = useState<{
     mode: ShiftMode;
     reading: string;
@@ -100,7 +100,9 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
     abortRef.current = controller;
     requestTimeoutRef.current = setTimeout(() => {
       controller.abort();
-    }, 25_000);
+    }, 35_000);
+
+    let path = "";
 
     try {
       const supabase = createSupabaseBrowserClient();
@@ -114,7 +116,7 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
       }
 
       const captureId = crypto.randomUUID();
-      const path = `${user.id}/${captureId}/${mode}.jpg`;
+      path = `${user.id}/${captureId}/${mode}.jpg`;
       const upload = await supabase.storage
         .from("driver-odometer")
         .upload(path, capturedPhoto.blob, {
@@ -178,11 +180,46 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
       setPhoto(null);
       startTransition(() => router.refresh());
     } catch (error) {
-      setErrorKey(
-        error instanceof DOMException && error.name === "AbortError"
-          ? "unreadable"
-          : "networkFailed",
-      );
+      const isAbort = error instanceof DOMException && error.name === "AbortError";
+      if (isAbort || !navigator.onLine) {
+        setStepKey("reconciling");
+        console.warn("[shift-action] Network timeout or drop, attempting server reconciliation...");
+
+        let reconciled = false;
+        for (let i = 0; i < 3; i++) {
+          try {
+            const check = await fetch(
+              `/api/driver-odometer/shift?action=${mode}&photoPath=${encodeURIComponent(path)}`,
+              { method: "GET" }
+            );
+            if (check.ok) {
+              const checkResult = await check.json();
+              if (checkResult.ok && checkResult.detectedReading !== undefined) {
+                console.info("[shift-action] Reconciliation successful", checkResult);
+                setSuccess({
+                  mode,
+                  reading: String(checkResult.detectedReading),
+                  confidence: checkResult.confidence ?? 0,
+                  capturedAt: capturedPhoto.capturedAt,
+                  reviewStatus: "pending_review",
+                });
+                URL.revokeObjectURL(capturedPhoto.url);
+                setPhoto(null);
+                startTransition(() => router.refresh());
+                reconciled = true;
+                break;
+              }
+            }
+          } catch (e) {
+            console.warn(`[shift-action] Reconciliation attempt ${i + 1} failed`, e);
+          }
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+
+        if (reconciled) return;
+      }
+
+      setErrorKey("networkFailed");
     } finally {
       if (requestTimeoutRef.current) {
         clearTimeout(requestTimeoutRef.current);

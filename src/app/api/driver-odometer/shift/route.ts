@@ -14,7 +14,7 @@ import type { Database } from "@/types/database";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 45;
 
 type ShiftAction = "start" | "end";
 type DriverShiftInsert = Database["public"]["Tables"]["driver_shifts"]["Insert"];
@@ -31,6 +31,61 @@ type RequestBody = {
   photoCapturedAt?: unknown;
   photoCrop?: unknown;
 };
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const action = searchParams.get("action");
+  const photoPath = searchParams.get("photoPath");
+
+  if (!action || !photoPath) {
+    return NextResponse.json({ ok: false, reason: "invalid_request" }, { status: 400 });
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ ok: false, reason: "session_expired" }, { status: 401 });
+  }
+
+  const admin = createSupabaseAdminClient();
+
+  if (action === "start") {
+    const { data } = await admin
+      .from("driver_shifts")
+      .select("id, status, start_odometer_reading, start_ocr_confidence")
+      .eq("driver_id", user.id)
+      .eq("start_photo_path", photoPath)
+      .maybeSingle();
+
+    if (data) {
+      return NextResponse.json({
+        ok: true,
+        detectedReading: data.start_odometer_reading,
+        confidence: data.start_ocr_confidence,
+      });
+    }
+  } else if (action === "end") {
+    const { data } = await admin
+      .from("driver_shifts")
+      .select("id, status, end_odometer_reading, end_ocr_confidence")
+      .eq("driver_id", user.id)
+      .eq("end_photo_path", photoPath)
+      .maybeSingle();
+
+    if (data && data.end_odometer_reading !== null) {
+      return NextResponse.json({
+        ok: true,
+        detectedReading: data.end_odometer_reading,
+        confidence: data.end_ocr_confidence,
+      });
+    }
+  }
+
+  return NextResponse.json({ ok: false, reason: "not_found" });
+}
 
 export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
@@ -163,6 +218,12 @@ export async function POST(request: Request) {
     stage = "shift_saved";
     logStage(requestId, stage);
 
+    if (action === "start") {
+      console.info("[odometer-shift] shift_start_saved", { shiftId: shift.id, reading: verification.detectedReading });
+    } else {
+      console.info("[odometer-shift] shift_end_saved", { shiftId: shift.id, reading: verification.detectedReading });
+    }
+
     await recordActivity({
       action:
         action === "start"
@@ -197,7 +258,9 @@ export async function POST(request: Request) {
       shift,
     });
   } catch (error) {
-    await cleanupPhoto(photoPath, admin);
+    // We intentionally removed cleanupPhoto from this global catch block.
+    // If we crash here (e.g. during DB save or activity logging), the photo remains in storage
+    // so it can be reconciled or recovered. It is only cleaned up early if OCR definitively rejects it.
     logFailure(requestId, stage, error);
     const { code, status } = mapServerError(error);
     return jsonError(code, status);
@@ -228,12 +291,18 @@ async function startShift({
 }) {
   const { data: existing } = await supabase
     .from("driver_shifts")
-    .select("id")
+    .select("id, start_photo_path")
     .eq("driver_id", driver.id)
     .eq("status", "open")
     .maybeSingle();
 
-  if (existing) throw new Error("SHIFT_OPEN_EXISTS");
+  if (existing) {
+    // If the open shift was started with the exact same photo, treat as successful duplicate.
+    if (existing.start_photo_path === photoPath) {
+      return existing;
+    }
+    throw new Error("SHIFT_OPEN_EXISTS");
+  }
 
   const insert: DriverShiftInsert = {
     driver_id: driver.id,
@@ -286,7 +355,21 @@ async function endShift({
     .eq("status", "open")
     .maybeSingle();
 
-  if (!openShift) throw new Error("SHIFT_NO_OPEN_SHIFT");
+  if (!openShift) {
+    // Check if there is already a completed shift with the exact same end photo
+    const { data: recentlyCompleted } = await supabase
+      .from("driver_shifts")
+      .select("id")
+      .eq("driver_id", driverId)
+      .eq("end_photo_path", photoPath)
+      .maybeSingle();
+
+    if (recentlyCompleted) {
+      return recentlyCompleted;
+    }
+    throw new Error("SHIFT_NO_OPEN_SHIFT");
+  }
+  
   if (reading < openShift.start_odometer_reading) throw new Error("SHIFT_END_BELOW_START");
 
   const update: DriverShiftUpdate = {
