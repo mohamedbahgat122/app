@@ -201,7 +201,9 @@ export async function verifyOdometerPhoto({
     // ------------------------------------------------------------------
     // Classify candidate numeric context
     // ------------------------------------------------------------------
-    const validCandidates: RawCandidate[] = [];
+    const fallbackCandidates: RawCandidate[] = [];
+    const directMatches: RawCandidate[] = [];
+
     for (const c of ocrResult.candidates) {
       if (c.rejectedContext) continue;
 
@@ -210,33 +212,45 @@ export async function verifyOdometerPhoto({
 
       const before = c.contextBefore || "";
       const after = c.contextAfter || "";
-      const ctx = `${before}${c.digits}${after}`; // Reconstruct full local context just for logging
+      const ctx = `${before}${c.digits}${after}`;
 
+      // 1. Explicit RPM rejection
       if (
-        /(?:x\s*|×\s*|rpm\s*|r\/min\s*|rev\/min\s*|1\/min\s*)$/i.test(before) || 
-        /^\s*(?:rpm|r\/min|rev\/min|1\/min)/i.test(after)
+        /(?:x\s*|×\s*|X\s*|rpm\s*|r\/min\s*|rev\/min\s*|1\/min\s*)$/i.test(before) || 
+        /^\s*(?:rpm|r\/min|rev\/min|1\/min)/i.test(after) ||
+        // Strict catch-all for RPM multipliers in the 18-char window
+        /(?:x|×|X)\s*(?:100|1000)\b/.test(ctx) && (c.digits === "100" || c.digits === "1000")
       ) {
         classification = "RPM";
         rejectedReason = "rpm_multiplier";
-      } else if (
+      } 
+      // 2. Explicit Speed rejection
+      else if (
         /^\s*(?:km\/h|kmh|kph|mph)/i.test(after)
       ) {
         classification = "SPEED";
         rejectedReason = "speed_indicator";
-      } else if (
+      } 
+      // 3. Explicit Temperature rejection
+      else if (
         /(?:temp|degrees)\s*$/i.test(before) || 
         /^\s*(?:°|deg)?\s*[cf]\b/i.test(after)
       ) {
         classification = "TEMPERATURE";
         rejectedReason = "temperature";
-      } else if (
+      } 
+      // 4. Explicit Clock rejection
+      else if (
         /(?:time|clock)\s*$/i.test(before)
       ) {
         classification = "CLOCK";
         rejectedReason = "clock";
-      } else if (
+      } 
+      // 5. Explicit ODOMETER match
+      else if (
         /(?:odo|odometer|total|mileage)\s*$/i.test(before) ||
-        /^\s*(?:km|mi\b|odo|odometer|total|mileage)/i.test(after)
+        /^\s*(?:km|mi\b|miles\b|odo|odometer|total|mileage)/i.test(after) ||
+        c.hasOdometerAnchor
       ) {
         classification = "ODOMETER";
       }
@@ -252,7 +266,25 @@ export async function verifyOdometerPhoto({
       }
 
       if (!rejectedReason) {
-        validCandidates.push(c);
+        fallbackCandidates.push(c);
+        if (classification === "ODOMETER") {
+          directMatches.push(c);
+        }
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // STAGE 2 & 3: Direct Match Priority vs Fallback
+    // ------------------------------------------------------------------
+    const finalRawCandidates = directMatches.length > 0 ? directMatches : fallbackCandidates;
+
+    if (process.env.NODE_ENV !== "production") {
+      if (directMatches.length > 0) {
+        console.info("[odometer-photo-ocr] direct_distance_matches", {
+          matches: Array.from(new Set(directMatches.map(c => c.digits)))
+        });
+      } else {
+        console.info("[odometer-photo-ocr] direct_odometer_not_found_fallback_started");
       }
     }
 
@@ -263,8 +295,9 @@ export async function verifyOdometerPhoto({
       action,
       currentShiftStartReading,
       previousReading,
-      rawCandidates: validCandidates,
+      rawCandidates: finalRawCandidates,
     });
+
   } catch (error) {
     if (process.env.NODE_ENV !== "production") {
       console.error("[odometer-photo-ocr] unexpected error", {
