@@ -178,7 +178,7 @@ export async function POST(request: Request) {
 
     const verification = await verifyOdometerPhoto({
       action,
-      crop: photoCrop,
+      crop: null, // Full dashboard pipeline
       currentShiftStartReading,
       driverId: driverContext.driver.id,
       image,

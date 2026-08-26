@@ -211,7 +211,21 @@ export async function loadDriverShiftHistory(
     });
   }
 
-  return { data: data ?? [], count: count ?? 0 };
+  const shifts = data ?? [];
+
+  // Convert raw photo paths to signed URLs in parallel
+  await Promise.all(
+    shifts.map(async (shift) => {
+      const [startUrl, endUrl] = await Promise.all([
+        createOdometerPhotoUrl(shift.start_photo_path),
+        createOdometerPhotoUrl(shift.end_photo_path),
+      ]);
+      shift.start_photo_path = startUrl ?? shift.start_photo_path;
+      shift.end_photo_path = endUrl ?? shift.end_photo_path;
+    })
+  );
+
+  return { data: shifts, count: count ?? 0 };
 }
 
 function extractKafaratplusRecords(response: unknown): Record<string, unknown>[] {
@@ -542,6 +556,43 @@ export async function createDriverAvatarUrl(path: string | null) {
   if (data?.signedUrl) {
     // Cache for 8 minutes (480000 ms)
     avatarUrlCache.set(path, { url: data.signedUrl, expiresAt: now + 480000 });
+  }
+
+  return data?.signedUrl ?? null;
+}
+
+const odometerPhotoUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+export async function createOdometerPhotoUrl(path: string | null) {
+  if (!path) {
+    return null;
+  }
+
+  const now = Date.now();
+  const cached = odometerPhotoUrlCache.get(path);
+  if (cached && cached.expiresAt > now) {
+    return cached.url;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.storage
+    .from("driver-odometer")
+    .createSignedUrl(path, 60 * 10);
+
+  if (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[odometer-photo]", {
+        stage: "create-signed-url",
+        code: error.name,
+        message: error.message,
+      });
+    }
+    return null;
+  }
+
+  if (data?.signedUrl) {
+    // Cache for 8 minutes (480000 ms)
+    odometerPhotoUrlCache.set(path, { url: data.signedUrl, expiresAt: now + 480000 });
   }
 
   return data?.signedUrl ?? null;

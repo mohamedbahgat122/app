@@ -19,10 +19,13 @@ export type OcrRawCandidate = {
   centerBias:        number;
   contextBefore:     string;
   contextAfter:      string;
+  bbox?:             { x0: number; y0: number; x1: number; y1: number };
 };
 
+export type OcrWord = { text: string; bbox: { x0: number; y0: number; x1: number; y1: number } };
+
 export type OcrChildResult =
-  | { ok: true;  candidates: OcrRawCandidate[]; log: Array<Record<string, unknown>> }
+  | { ok: true;  candidates: OcrRawCandidate[]; words: OcrWord[]; log: Array<Record<string, unknown>> }
   | { ok: false; reason: "timeout" | "crash" | "parse_error" | "worker_not_found"; log: Array<Record<string, unknown>> };
 
 export async function spawnOcrChild({
@@ -115,10 +118,11 @@ function runChildProcess(stdinJson: string): Promise<OcrChildResult> {
       const stdout = Buffer.concat(stdoutChunks).toString("utf8").trim();
 
       try {
-        const parsed = JSON.parse(stdout) as { candidates: OcrRawCandidate[]; log: unknown[] };
+        const parsed = JSON.parse(stdout) as { candidates: OcrRawCandidate[]; words?: OcrWord[]; log: unknown[] };
         resolve({
           ok:         true,
           candidates: Array.isArray(parsed.candidates) ? parsed.candidates : [],
+          words:      Array.isArray(parsed.words) ? parsed.words : [],
           log:        (Array.isArray(parsed.log) ? parsed.log : []) as Array<Record<string, unknown>>,
         });
       } catch {

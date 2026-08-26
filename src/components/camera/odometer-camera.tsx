@@ -149,47 +149,59 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
   async function captureFrame() {
     const video = videoRef.current;
 
-    if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
+    if (!video || video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
+      console.warn("[odometer-camera] capture_not_ready", {
+        readyState: video?.readyState,
+        videoWidth: video?.videoWidth,
+        videoHeight: video?.videoHeight
+      });
       setErrorKey("captureFailed");
       setStatus("error");
       autoCaptureLockedRef.current = false;
       return;
     }
 
-    const scale = Math.min(1600 / video.videoWidth, 1);
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(video.videoWidth * scale);
-    canvas.height = Math.round(video.videoHeight * scale);
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
     const context = canvas.getContext("2d");
 
     if (!context) {
+      console.error("[odometer-camera] capture_failed", { stage: "getContext" });
       setErrorKey("captureFailed");
       setStatus("error");
       autoCaptureLockedRef.current = false;
       return;
     }
 
-    const crop = getNormalizedGuideCrop(video);
-
-    if (!crop) {
+    try {
+      context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+    } catch (err) {
+      console.error("[odometer-camera] capture_failed", { stage: "drawImage", error: err });
       setErrorKey("captureFailed");
       setStatus("error");
       autoCaptureLockedRef.current = false;
       return;
     }
-
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, "image/jpeg", 0.88);
+      canvas.toBlob(resolve, "image/jpeg", 0.9);
     });
 
     if (!blob) {
+      console.error("[odometer-camera] capture_failed", { stage: "toBlob" });
       setErrorKey("captureFailed");
       setStatus("error");
       autoCaptureLockedRef.current = false;
       return;
     }
+
+    console.info("[odometer-camera] capture_success", {
+      width: canvas.width,
+      height: canvas.height,
+      blobSize: blob.size,
+      blobType: blob.type
+    });
 
     clearAutoCaptureTimer();
     setIsFinalizing(true);
@@ -197,17 +209,19 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
 
     const capturedAt = new Date().toISOString();
     const previewUrl = URL.createObjectURL(blob);
+    // Provide a full-frame dummy crop for downstream compatibility until fully removed
+    const dummyCrop: OdometerCrop = { x: 0, y: 0, width: 1, height: 1 };
 
     stopCamera();
     setCapture({
       blob,
       capturedAt,
       url: previewUrl,
-      crop,
+      crop: dummyCrop,
     });
     setStatus("captured");
     setIsFinalizing(false);
-    onUsePhoto(blob, capturedAt, previewUrl, crop);
+    onUsePhoto(blob, capturedAt, previewUrl, dummyCrop);
   }
 
   function retake() {
@@ -250,15 +264,17 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
       runId !== liveRunRef.current ||
       status !== "ready" ||
       isFinalizing ||
-      autoCaptureLockedRef.current ||
       !video ||
+      video.readyState < 2 ||
+      video.videoWidth <= 0 ||
+      video.videoHeight <= 0 ||
+      autoCaptureLockedRef.current ||
       !analyzerRef.current
     ) {
       return;
     }
 
-    const crop = getNormalizedGuideCrop(video);
-    if (!crop) return;
+    const crop: OdometerCrop = { x: 0, y: 0, width: 1, height: 1 };
 
     const analysis = analyzerRef.current.analyzeFrame(
       video,
@@ -325,22 +341,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
 
             {status === "ready" ? (
               <>
-                {/* Guide Frame Overlay matching the strip exactly */}
-                <div
-                  ref={guideRef}
-                  className={[
-                    "pointer-events-none absolute inset-1.5 rounded-lg border-[3px] transition-colors duration-150",
-                    detectionStatus === "aligned" || detectionStatus === "capturing"
-                      ? "border-emerald-400 shadow-[0_0_20px_rgba(52,211,153,0.5)]"
-                      : "border-amber-300",
-                  ].join(" ")}
-                >
-                  {detectionStatus === "aligned" || detectionStatus === "capturing" ? (
-                    <span className="absolute -top-3 end-2 flex size-6 items-center justify-center rounded-full bg-emerald-400 text-xs font-black text-navy shadow-md">
-                      ✓
-                    </span>
-                  ) : null}
-                </div>
+                {/* No Guide Frame Overlay - Full Dashboard expected */}
               </>
             ) : null}
 
@@ -380,7 +381,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
         {/* Footer controls */}
         <div className="space-y-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <p className="text-center text-xs font-medium text-white/80">
-            {t("instruction")}
+            صوّر لوحة العدادات كاملة وبوضوح
           </p>
 
           {status === "captured" && capture ? (
@@ -415,45 +416,6 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
       </div>
     </div>
   );
-
-  function getNormalizedGuideCrop(video: HTMLVideoElement): OdometerCrop | null {
-    const guide = guideRef.current;
-
-    if (!guide || video.videoWidth <= 0 || video.videoHeight <= 0) {
-      return null;
-    }
-
-    const videoRect = video.getBoundingClientRect();
-    const guideRect = guide.getBoundingClientRect();
-
-    if (videoRect.width <= 0 || videoRect.height <= 0) return null;
-
-    const coverScale = Math.max(
-      videoRect.width  / video.videoWidth,
-      videoRect.height / video.videoHeight,
-    );
-
-    const displayedWidth  = video.videoWidth  * coverScale;
-    const displayedHeight = video.videoHeight * coverScale;
-
-    const offsetX = (videoRect.width  - displayedWidth)  / 2;
-    const offsetY = (videoRect.height - displayedHeight) / 2;
-
-    const relLeft = guideRect.left - videoRect.left - offsetX;
-    const relTop  = guideRect.top  - videoRect.top  - offsetY;
-
-    const x      = relLeft / displayedWidth;
-    const y      = relTop  / displayedHeight;
-    const width  = guideRect.width  / displayedWidth;
-    const height = guideRect.height / displayedHeight;
-
-    return {
-      x:      clamp01(x),
-      y:      clamp01(y),
-      width:  clamp01(width),
-      height: clamp01(height),
-    };
-  }
 }
 
 function clamp01(value: number) {

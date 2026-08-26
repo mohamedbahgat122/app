@@ -199,69 +199,111 @@ export async function verifyOdometerPhoto({
     }
 
     // ------------------------------------------------------------------
-    // Classify candidate numeric context
+    // Classify candidate numeric context (2D Spatial Geometry)
     // ------------------------------------------------------------------
     const fallbackCandidates: RawCandidate[] = [];
     const directMatches: RawCandidate[] = [];
+
+    const words = ocrResult.words || [];
 
     for (const c of ocrResult.candidates) {
       if (c.rejectedContext) continue;
 
       let classification = "UNKNOWN";
       let rejectedReason = "";
+      
+      const nearbyWords: string[] = [];
 
-      const before = c.contextBefore || "";
-      const after = c.contextAfter || "";
-      const ctx = `${before}${c.digits}${after}`;
+      // 2D Spatial Context Math
+      // We look for words that are physically close to the candidate.
+      if (c.bbox) {
+        const { x0: cx0, y0: cy0, x1: cx1, y1: cy1 } = c.bbox;
+        const cWidth = cx1 - cx0;
+        const cHeight = cy1 - cy0;
+        
+        // Dynamic thresholds based on the candidate's own size
+        // We look within a horizontal search distance (e.g. 3.5x its width)
+        // and a vertical alignment tolerance (e.g. 1.5x its height)
+        const maxDistX = cWidth * 3.5;
+        const maxDistY = cHeight * 1.5;
+
+        for (const w of words) {
+          const { x0: wx0, y0: wy0, x1: wx1, y1: wy1 } = w.bbox;
+          
+          // Check vertical alignment (must be roughly on the same line)
+          const verticalOverlap = Math.max(0, Math.min(cy1, wy1) - Math.max(cy0, wy0));
+          const isVerticallyAligned = verticalOverlap > 0 || Math.abs(cy0 - wy0) < maxDistY;
+
+          if (isVerticallyAligned) {
+            // Check horizontal distance
+            let distX = 0;
+            if (wx0 > cx1) { // Word is to the right
+              distX = wx0 - cx1;
+            } else if (cx0 > wx1) { // Word is to the left
+              distX = cx0 - wx1;
+            } // else overlapping
+
+            if (distX < maxDistX) {
+              nearbyWords.push(w.text);
+            }
+          }
+        }
+      }
+
+      const spatialContext = nearbyWords.join(" ").toLowerCase();
+
+      // Fallback to 1D context if no geometry or geometry didn't find anything
+      const ctx = c.bbox && nearbyWords.length > 0 
+        ? spatialContext 
+        : `${c.contextBefore || ""}${c.digits}${c.contextAfter || ""}`.toLowerCase();
 
       // 1. Explicit RPM rejection
       if (
-        /(?:x\s*|×\s*|X\s*|rpm\s*|r\/min\s*|rev\/min\s*|1\/min\s*)$/i.test(before) || 
-        /^\s*(?:rpm|r\/min|rev\/min|1\/min)/i.test(after) ||
-        // Strict catch-all for RPM multipliers in the 18-char window
-        /(?:x|×|X)\s*(?:100|1000)\b/.test(ctx) && (c.digits === "100" || c.digits === "1000")
+        /(?:x|×|X)\s*(?:10|100|1000)\b/.test(ctx) || 
+        /(?:rpm|r\/min|rev\/min|1\/min)/.test(ctx) ||
+        (c.digits === "100" || c.digits === "1000") && /(?:x|×|X)/i.test(ctx)
       ) {
         classification = "RPM";
         rejectedReason = "rpm_multiplier";
       } 
       // 2. Explicit Speed rejection
       else if (
-        /^\s*(?:km\/h|kmh|kph|mph)/i.test(after)
+        /(?:km\/h|kmh|kph|mph)/.test(ctx)
       ) {
         classification = "SPEED";
         rejectedReason = "speed_indicator";
       } 
       // 3. Explicit Temperature rejection
       else if (
-        /(?:temp|degrees)\s*$/i.test(before) || 
-        /^\s*(?:°|deg)?\s*[cf]\b/i.test(after)
+        /(?:temp|degrees)/.test(ctx) || 
+        /(?:°|deg)?\s*[cf]\b/.test(ctx)
       ) {
         classification = "TEMPERATURE";
         rejectedReason = "temperature";
       } 
       // 4. Explicit Clock rejection
       else if (
-        /(?:time|clock)\s*$/i.test(before)
+        /(?:time|clock)/.test(ctx)
       ) {
         classification = "CLOCK";
         rejectedReason = "clock";
       } 
       // 5. Explicit ODOMETER match
       else if (
-        /(?:odo|odometer|total|mileage)\s*$/i.test(before) ||
-        /^\s*(?:km|mi\b|miles\b|odo|odometer|total|mileage)/i.test(after) ||
+        /(?:km|mi\b|miles\b|odo|odometer|total|mileage)/.test(ctx) ||
         c.hasOdometerAnchor
       ) {
         classification = "ODOMETER";
       }
 
       if (process.env.NODE_ENV !== "production") {
-        console.info("[odometer-photo-ocr] candidate_context", {
-          rawDigits: c.digits,
+        console.info("[odometer-photo-ocr] spatial_candidate", {
+          digits: c.digits,
+          bbox: c.bbox,
+          nearbyWords,
           classification,
-          nearbyText: ctx,
           anchor: c.hasOdometerAnchor,
-          rejectedReason: rejectedReason || undefined,
+          confidence: c.confidence,
         });
       }
 
@@ -387,6 +429,16 @@ export async function verifyOdometerPhoto({
   });
 
   logMemory("after_candidate_selected");
+
+  if (process.env.NODE_ENV !== "production") {
+    console.info("[odometer-photo-ocr] spatial_odometer_selected", {
+      rawDigits: best.digits,
+      numericReading: best.reading,
+      source: best.source,
+      confidence: Math.round(best.confidence),
+      vehiclePreviousReading: previousReading
+    });
+  }
 
   return {
     accepted:        true,
@@ -666,12 +718,15 @@ async function loadLatestAcceptedOdometerReading({
     .select(
       "id, started_at, start_odometer_reading, end_odometer_reading, start_ocr_status, end_ocr_status, start_review_status, end_review_status",
     )
-    .eq("driver_id", driverId)
     .order("started_at", { ascending: false })
     .limit(25);
 
   if (vehicleId) {
     query = query.eq("vehicle_id", vehicleId);
+  } else {
+    // If we don't have a vehicle ID, fallback to driver ID but this is technically unsafe 
+    // for cross-vehicle tracking, as requested by the user.
+    query = query.eq("driver_id", driverId);
   }
 
   return query.then(({ data, error }) => {

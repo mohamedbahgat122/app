@@ -31,31 +31,12 @@ const RECOGNIZE_TIMEOUT   = 12000;
 
 function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
 
-function toRect(imgW, imgH, crop) {
-  const left   = clamp(Math.round(crop.x * imgW), 0, imgW - 1);
-  const top    = clamp(Math.round(crop.y * imgH), 0, imgH - 1);
-  const right  = clamp(Math.round((crop.x + crop.width)  * imgW), left + 1, imgW);
-  const bottom = clamp(Math.round((crop.y + crop.height) * imgH), top  + 1, imgH);
-  return { left, top, width: right - left, height: bottom - top };
-}
-
 function clampRect(r, imgW, imgH) {
   const left   = clamp(r.left,            0, imgW - 1);
   const top    = clamp(r.top,             0, imgH - 1);
   const right  = clamp(r.left + r.width,  left + 1, imgW);
   const bottom = clamp(r.top  + r.height, top  + 1, imgH);
   return { left, top, width: right - left, height: bottom - top };
-}
-
-function isValidCrop(crop) {
-  return (
-    crop != null && typeof crop === "object" &&
-    Number.isFinite(crop.x) && Number.isFinite(crop.y) &&
-    Number.isFinite(crop.width) && Number.isFinite(crop.height) &&
-    crop.x >= 0 && crop.y >= 0 &&
-    crop.width > 0.05 && crop.height > 0.03 &&
-    crop.x + crop.width <= 1 && crop.y + crop.height <= 1
-  );
 }
 
 function normalizeOcrText(text, preserveO) {
@@ -78,24 +59,17 @@ function isPlausibleOdometerDigits(digits) {
 }
 
 function looksLikeNonOdometerNumber(raw, ctx) {
-  // We will now handle all context rejection in the main process (photo-verification.ts)
-  // to allow for better logging and generic fleet rules.
   return false;
 }
 
-function extractDigitCandidates(text, confidence, source, centerBias) {
+function extractDigitCandidates(text, confidence, source, centerBias, bbox) {
   const norm    = normalizeOcrText(text, false);
   const normAnc = normalizeOcrText(text, true);
   const results = [];
   const patterns = [
-    // Pattern 0 — km/KM suffix anchor: "084649km", "084649 km"
-    // This is the most common real-world odometer format on dashboard photos.
     { re: /(\d{4,9})\s*km\b/giu, anchor: true,  t: norm    },
-    // Pattern 1 — ODO / TOTAL keyword anchor
     { re: /(?:odo|od0|0do|odometer|total)\s*[:=]?\s*(\d[\d\s,.]{2,12}\d)/giu, anchor: true,  t: normAnc },
-    // Pattern 2 — separator-formatted numbers (e.g. 123,456)
     { re: /(?<!\d)(?:\d{1,3}(?:[\s,.]\d{3}){1,3})(?!\d)/gu,                  anchor: false, t: norm    },
-    // Pattern 3 — plain digit run 4-9 digits
     { re: /(?<!\d)\d{4,9}(?!\d)/gu,                                            anchor: false, t: norm    },
   ];
   for (const pat of patterns) {
@@ -112,10 +86,11 @@ function extractDigitCandidates(text, confidence, source, centerBias) {
         confidence: Math.min(100, Math.max(0, Math.round(confidence))),
         source,
         hasOdometerAnchor: pat.anchor,
-        rejectedContext:   looksLikeNonOdometerNumber(raw, ctx), // Now always false
+        rejectedContext:   looksLikeNonOdometerNumber(raw, ctx),
         centerBias,
         contextBefore:     before,
         contextAfter:      after,
+        bbox,
       });
     }
   }
@@ -135,21 +110,25 @@ async function runPass(worker, imgBuf, source, centerBias, log) {
     recData = data;
   } catch (err) {
     log.push({ stage: "pass_error", source, error: err.message });
-    return [];
+    return { candidates: [], words: [] };
   }
   const confidence = Math.round(recData.confidence ?? 0);
   const rawText    = (recData.text ?? "").trim();
   log.push({ stage: "pass_result", source, confidence, rawText });
   const candidates = [];
-  candidates.push(...extractDigitCandidates(rawText, confidence, source, centerBias));
+  const allWords = [];
+  candidates.push(...extractDigitCandidates(rawText, confidence, source, centerBias, null));
   for (const block of recData.blocks ?? []) {
     for (const para of block.paragraphs ?? []) {
       for (const line of para.lines ?? []) {
         const lConf = line.confidence ?? para.confidence ?? block.confidence ?? confidence;
-        candidates.push(...extractDigitCandidates(line.text ?? "", lConf, source + ":line", centerBias));
+        candidates.push(...extractDigitCandidates(line.text ?? "", lConf, source + ":line", centerBias, line.bbox));
         for (const word of line.words ?? []) {
           const wConf = word.confidence ?? lConf;
-          candidates.push(...extractDigitCandidates(word.text ?? "", wConf, source + ":word", centerBias));
+          if (word.bbox && word.text && word.text.trim().length > 0) {
+            allWords.push({ text: word.text, bbox: word.bbox });
+          }
+          candidates.push(...extractDigitCandidates(word.text ?? "", wConf, source + ":word", centerBias, word.bbox));
         }
       }
     }
@@ -157,11 +136,7 @@ async function runPass(worker, imgBuf, source, centerBias, log) {
   const useful = candidates.filter((c) => !c.rejectedContext);
   log.push({ stage: "pass_candidates", source, total: candidates.length, useful: useful.length,
     items: useful.slice(0, 10).map((c) => ({ digits: c.digits, confidence: c.confidence })) });
-  return candidates;
-}
-
-function hasPrimaryCandidate(candidates) {
-  return candidates.some((c) => typeof c.source === "string" && c.source.startsWith("primary-") && !c.rejectedContext);
+  return { candidates, words: allWords };
 }
 
 async function main() {
@@ -174,7 +149,7 @@ async function main() {
     process.stderr.write("OCR_WORKER: invalid stdin JSON: " + parseErr.message + "\n");
     process.exit(1);
   }
-  const { imagePath, crop } = input;
+  const { imagePath } = input;
   if (!imagePath || !fs.existsSync(imagePath)) {
     process.stderr.write("OCR_WORKER: imagePath not found: " + imagePath + "\n");
     process.exit(1);
@@ -183,7 +158,7 @@ async function main() {
   const { createWorker, PSM } = require("tesseract.js");
   const imageBuffer = fs.readFileSync(imagePath);
   const log = [];
-  const allCandidates = [];
+  
   const normalizedBuf = await sharp(imageBuffer, { failOn: "none" }).rotate().png().toBuffer();
   const meta = await sharp(normalizedBuf, { failOn: "none" }).metadata();
   const imgW = meta.width  ?? 0;
@@ -197,33 +172,24 @@ async function main() {
     new Promise((_, reject) => setTimeout(() => reject(new Error("WORKER_INIT_TIMEOUT")), WORKER_INIT_TIMEOUT)),
   ]);
   log.push({ stage: "worker_ready" });
+  
+  let allCandidates = [];
+  let allWords = [];
+
   try {
-    const usableCrop = isValidCrop(crop) ? crop : null;
-    if (usableCrop && imgW > 0 && imgH > 0) {
-      const rect = toRect(imgW, imgH, usableCrop);
-      log.push({ stage: "crop_rect", rect });
-      const primaryBuf = await sharp(normalizedBuf, { failOn: "none" })
-        .extract(rect)
-        .resize({ width: Math.max(1, rect.width * 3), withoutEnlargement: false })
-        .grayscale().normalize().sharpen({ sigma: 1 }).png().toBuffer();
-      const pm = await sharp(primaryBuf, { failOn: "none" }).metadata();
-      log.push({ stage: "pass1_image", width: pm.width, height: pm.height });
-      await worker.setParameters({
-        tessedit_char_whitelist: "0123456789", tessedit_pageseg_mode: PSM.SINGLE_LINE,
-        preserve_interword_spaces: "1", user_defined_dpi: "300",
-      });
-      const r1 = await runPass(worker, primaryBuf, "primary-processed-crop", 16, log);
-      allCandidates.push(...r1);
-      const threshBuf = await sharp(primaryBuf, { failOn: "none" }).threshold(145).png().toBuffer();
-      const r2 = await runPass(worker, threshBuf, "primary-threshold-crop", 16, log);
-      allCandidates.push(...r2);
-      if (hasPrimaryCandidate(allCandidates)) {
-        log.push({ stage: "early_exit_after_primary_passes" });
-        process.stdout.write(JSON.stringify({ candidates: allCandidates, log }) + "\n");
-        return;
-      }
-    }
-    if (imgW > 0 && imgH > 0) {
+    // 1. PRIMARY PATH: Full-frame with sparse text
+    log.push({ stage: "starting_primary_full_frame" });
+    await worker.setParameters({
+      tessedit_char_whitelist: "0123456789,. kmKMODOodoTOTALtotalTRIPtripTEMPtemp:C",
+      tessedit_pageseg_mode: PSM.SPARSE_TEXT, preserve_interword_spaces: "1", user_defined_dpi: "220",
+    });
+    const fullRes = await runPass(worker, normalizedBuf, "full-frame", 0, log);
+    allCandidates.push(...fullRes.candidates);
+    allWords.push(...fullRes.words);
+
+    // If full frame returned nothing (rare), fallback to a center strip just in case
+    if (imgW > 0 && imgH > 0 && (allWords.length === 0 || allCandidates.length === 0)) {
+      log.push({ stage: "starting_fallback_center_strip" });
       const cr = clampRect({ left: Math.round(imgW * 0.08), top: Math.round(imgH * 0.36),
         width: Math.round(imgW * 0.84), height: Math.round(imgH * 0.28) }, imgW, imgH);
       const centerBuf = await sharp(normalizedBuf, { failOn: "none" })
@@ -234,19 +200,15 @@ async function main() {
         tessedit_pageseg_mode: PSM.SINGLE_LINE, preserve_interword_spaces: "1", user_defined_dpi: "220",
       });
       const r3 = await runPass(worker, centerBuf, "center-dashboard-strip", 8, log);
-      allCandidates.push(...r3);
+      allCandidates.push(...r3.candidates);
+      allWords.push(...r3.words);
     }
-    await worker.setParameters({
-      tessedit_char_whitelist: "0123456789,. kmKMODOodoTOTALtotalTRIPtripTEMPtemp:C",
-      tessedit_pageseg_mode: PSM.SPARSE_TEXT, preserve_interword_spaces: "1", user_defined_dpi: "220",
-    });
-    const r4 = await runPass(worker, normalizedBuf, "full-frame", 0, log);
-    allCandidates.push(...r4);
+
   } finally {
     await worker.terminate().catch(() => undefined);
     log.push({ stage: "worker_terminated" });
   }
-  process.stdout.write(JSON.stringify({ candidates: allCandidates, log }) + "\n");
+  process.stdout.write(JSON.stringify({ candidates: allCandidates, words: allWords, log }) + "\n");
 }
 
 main().catch((err) => {

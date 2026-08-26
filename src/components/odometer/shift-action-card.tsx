@@ -139,7 +139,6 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
           action: mode,
           photoPath: path,
           photoCapturedAt: capturedPhoto.capturedAt,
-          photoCrop: capturedPhoto.crop,
         }),
       });
 
