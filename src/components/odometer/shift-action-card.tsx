@@ -408,6 +408,9 @@ function mapShiftError(message: string) {
   if (message.includes("image_unreadable")) {
     return "imageUnreadable";
   }
+  if (message.includes("not_dashboard")) {
+    return "notDashboard";
+  }
 
   if (
     message.includes("odometer_unverified") ||
@@ -440,6 +443,7 @@ function isRetakeOnlyError(code: string | undefined) {
     code === "reading_below_previous" ||
     code === "invalid_photo" ||
     code === "image_unreadable" ||
+    code === "not_dashboard" ||
     code === "invalid_input"
   );
 }

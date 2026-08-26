@@ -357,11 +357,59 @@ export async function verifyOdometerPhoto({
     let finalRawCandidates: RawCandidate[];
 
     if (expectedDigits) {
-      const hasMeaningfulText = ocrResult.candidates.length > 0 || (ocrResult.words && ocrResult.words.length > 0);
+      const words = ocrResult.words || [];
+      const allText = words.map(w => w.text.toLowerCase().trim()).join(" ");
+      let score = 0;
+      const signals: string[] = [];
+
+      // Strong Dashboard anchors
+      if (/(km|mi|km\/h|mph|rpm|odo|total|trip|كم|كيلومتر)/i.test(allText)) {
+        score += 50;
+        signals.push("dashboard_anchor");
+      }
       
-      if (!hasMeaningfulText) {
-        logOcrStage("image_unreadable", { expectedDigits });
-        return rejected("image_unreadable" as any, [], previousReading);
+      const prnd = allText.match(/\b[p|r|n|d]\b/gi);
+      if (prnd && prnd.length >= 2) {
+        score += 20;
+        signals.push("gear_letters");
+      }
+      
+      let gaugeNums = 0;
+      for (const w of words) {
+        if (/^\d{1,3}$/.test(w.text)) gaugeNums++;
+      }
+      if (gaugeNums >= 3) {
+        score += 30;
+        signals.push("gauge_scale_numbers");
+      }
+      
+      const uniqueNumericRegions = new Set(ocrResult.candidates.map(c => c.digits)).size;
+      if (uniqueNumericRegions >= 2) {
+        score += 20;
+        signals.push("multiple_numeric_regions");
+      }
+
+      const isDocument = /(invoice|receipt|date|tax|total due|amount|فاتورة|ايصال|تاريخ|ضريبة)/i.test(allText);
+      if (isDocument) {
+        score -= 100;
+        signals.push("document_layout");
+      }
+
+      let accepted = score >= 50;
+      
+      if (!accepted && !isDocument && uniqueNumericRegions >= 2 && gaugeNums >= 1) {
+        accepted = true;
+        signals.push("digital_fallback");
+      }
+
+      logOcrStage("dashboard_evidence", { score, signals, accepted });
+
+      if (!accepted) {
+        if (ocrResult.candidates.length === 0 && words.length === 0) {
+          logOcrStage("image_unreadable", { expectedDigits });
+          return rejected("image_unreadable" as any, [], previousReading);
+        }
+        return rejected("not_dashboard" as any, [], previousReading);
       }
       
       const readingVal = Number(expectedDigits);
