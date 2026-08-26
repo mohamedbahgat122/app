@@ -1,4 +1,3 @@
-import type { OdometerCrop } from "@/components/camera/odometer-camera";
 import { OCR_DEBUG } from "@/lib/odometer/ocr-debug-flag";
 
 export type OdometerOcrCandidate = {
@@ -93,14 +92,13 @@ const ocrPasses: OdometerOcrPass[] = [
  */
 export async function readOdometerFromPhoto(
   blob: Blob,
-  crop: OdometerCrop,
 ): Promise<OdometerOcrResult> {
   const worker = await getOdometerWorker();
   const candidates: OdometerOcrCandidate[] = [];
   const rawTexts: string[] = [];
 
   for (const pass of ocrPasses) {
-    const canvas = await preprocessOdometerImage(blob, crop, pass);
+    const canvas = await preprocessOdometerImage(blob, pass);
     const { data } = await worker.recognize(canvas);
     rawTexts.push(`[${pass.name}] ${data.text}`);
     const extracted = extractOdometerReading(data.text ?? "", data.confidence ?? 0, pass.name);
@@ -289,11 +287,10 @@ export function buildConsensusResult(
 
 async function preprocessOdometerImage(
   blob: Blob,
-  crop: OdometerCrop,
   pass: OdometerOcrPass,
 ): Promise<HTMLCanvasElement> {
   const bitmap = await createImageBitmap(blob);
-  const source = getSourceCrop(bitmap.width, bitmap.height, crop, pass);
+  const source = getSourceCrop(bitmap.width, bitmap.height, pass);
   const scale = Math.min(pass.maxWidth / source.width, 1);
   const width = Math.max(1, Math.round(source.width * scale));
   const height = Math.max(1, Math.round(source.height * scale));
@@ -364,15 +361,14 @@ function applyImageProcessing(
 function getSourceCrop(
   width: number,
   height: number,
-  crop: OdometerCrop,
   pass: OdometerOcrPass,
 ) {
-  const paddingX = crop.width * pass.cropPaddingX;
-  const paddingY = crop.height * pass.cropPaddingY;
-  const x = clamp(crop.x - paddingX, 0, 1);
-  const y = clamp(crop.y - paddingY, 0, 1);
-  const right = clamp(crop.x + crop.width + paddingX, 0, 1);
-  const bottom = clamp(crop.y + crop.height + paddingY, 0, 1);
+  const paddingX = pass.cropPaddingX;
+  const paddingY = pass.cropPaddingY;
+  const x = clamp(0 - paddingX, 0, 1);
+  const y = clamp(0 - paddingY, 0, 1);
+  const right = clamp(1 + paddingX, 0, 1);
+  const bottom = clamp(1 + paddingY, 0, 1);
 
   return {
     x: Math.round(x * width),

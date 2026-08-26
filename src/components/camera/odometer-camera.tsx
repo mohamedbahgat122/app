@@ -7,25 +7,24 @@ import { OCR_DEBUG } from "@/lib/odometer/ocr-debug-flag";
 
 type CameraStatus = "idle" | "loading" | "ready" | "captured" | "error";
 type DetectionStatus = "idle" | "aligned" | "capturing";
+type FacingMode = "environment" | "user";
 
 type OdometerCameraProps = {
   onClose: () => void;
+  onVerifyPhoto: (
+    blob: Blob,
+    capturedAt: string
+  ) => Promise<{ reading: string | null; path: string; error?: string }>;
   onUsePhoto: (
     blob: Blob,
     capturedAt: string,
     previewUrl: string,
-    crop: OdometerCrop,
+    serverPath: string
   ) => void;
+  onRetake?: (serverPath: string) => void;
 };
 
-export type OdometerCrop = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
-export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
+export function OdometerCamera({ onClose, onVerifyPhoto, onUsePhoto, onRetake }: OdometerCameraProps) {
   const t = useTranslations("Camera");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const guideRef = useRef<HTMLDivElement | null>(null);
@@ -44,8 +43,15 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     blob: Blob;
     capturedAt: string;
     url: string;
-    crop: OdometerCrop;
+    serverPath?: string;
   } | null>(null);
+  
+  const [verifyStatus, setVerifyStatus] = useState<"idle" | "verifying" | "success" | "error">("idle");
+  const [detectedReading, setDetectedReading] = useState<string | null>(null);
+
+  const [facingMode, setFacingMode] = useState<FacingMode>("environment");
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchEnabled, setTorchEnabled] = useState(false);
 
   // Dev-only debug info
   const [devCropInfo, setDevCropInfo] = useState<string | null>(null);
@@ -53,7 +59,7 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
 
   useEffect(() => {
     analyzerRef.current = new LiveFrameAnalyzer();
-    void openCamera();
+    void openCamera(facingMode);
 
     function handleVisibilityChange() {
       if (document.hidden) {
@@ -82,10 +88,12 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     }
   }
 
-  async function openCamera() {
+  async function openCamera(mode: FacingMode) {
     setStatus("loading");
     setErrorKey(null);
     setDetectionStatus("idle");
+    setTorchSupported(false);
+    setTorchEnabled(false);
     autoCaptureLockedRef.current = false;
     analyzerRef.current?.reset();
 
@@ -105,9 +113,9 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1600 },
-          height: { ideal: 1200 },
+          facingMode: { ideal: mode },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
       });
 
@@ -115,6 +123,15 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+      }
+
+      // Check capabilities for torch
+      const track = stream.getVideoTracks()[0];
+      if (track && track.getCapabilities) {
+        const capabilities = track.getCapabilities() as any;
+        if (capabilities.torch) {
+          setTorchSupported(true);
+        }
       }
 
       setStatus("ready");
@@ -132,42 +149,117 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
   }
 
   function stopCamera() {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-
+    if (streamRef.current) {
+      const track = streamRef.current.getVideoTracks()[0];
+      if (track && torchEnabled) {
+        try {
+          track.applyConstraints({ advanced: [{ torch: false } as any] });
+        } catch(e) {}
+      }
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
   }
 
-  /**
-   * Freeze the video frame onto a single high-res canvas.
-   *
-   * Both the saved image Blob AND the final OCR reading are derived
-   * from this EXACT SAME canvas frame.
-   */
+  async function toggleTorch() {
+    if (!streamRef.current) return;
+    const track = streamRef.current.getVideoTracks()[0];
+    if (!track) return;
+    try {
+      const nextTorch = !torchEnabled;
+      await track.applyConstraints({ advanced: [{ torch: nextTorch } as any] });
+      setTorchEnabled(nextTorch);
+      console.info("[odometer-camera] torch_changed", { enabled: nextTorch });
+    } catch (error) {
+      console.error("Failed to toggle torch", error);
+      setTorchEnabled(false);
+    }
+  }
+
+  function toggleFacingMode() {
+    stopCamera();
+    const nextMode = facingMode === "environment" ? "user" : "environment";
+    setFacingMode(nextMode);
+    void openCamera(nextMode);
+  }
+
+  function calculateVideoFrameCrop(
+    videoElement: HTMLVideoElement,
+    frameElement: HTMLDivElement
+  ) {
+    const videoWidth = videoElement.videoWidth;
+    const videoHeight = videoElement.videoHeight;
+    const videoRect = videoElement.getBoundingClientRect();
+    const frameRect = frameElement.getBoundingClientRect();
+
+    const scale = Math.max(
+      videoRect.width / videoWidth,
+      videoRect.height / videoHeight
+    );
+
+    const displayedWidth = videoWidth * scale;
+    const displayedHeight = videoHeight * scale;
+
+    const offsetX = (displayedWidth - videoRect.width) / 2;
+    const offsetY = (displayedHeight - videoRect.height) / 2;
+
+    const relativeFrameX = frameRect.left - videoRect.left;
+    const relativeFrameY = frameRect.top - videoRect.top;
+
+    const sourceX = (relativeFrameX + offsetX) / scale;
+    const sourceY = (relativeFrameY + offsetY) / scale;
+    const sourceWidth = frameRect.width / scale;
+    const sourceHeight = frameRect.height / scale;
+
+    return {
+      sourceX: Math.max(0, sourceX),
+      sourceY: Math.max(0, sourceY),
+      sourceWidth: Math.min(videoWidth - sourceX, sourceWidth),
+      sourceHeight: Math.min(videoHeight - sourceY, sourceHeight),
+      displayedWidth,
+      displayedHeight,
+      frameRect,
+    };
+  }
+
   async function captureFrame() {
     const video = videoRef.current;
+    const guide = guideRef.current;
 
-    if (!video || video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
-      console.warn("[odometer-camera] capture_not_ready", {
-        readyState: video?.readyState,
-        videoWidth: video?.videoWidth,
-        videoHeight: video?.videoHeight
-      });
+    if (!video || !guide || video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0 || guide.getBoundingClientRect().width === 0) {
       setErrorKey("captureFailed");
       setStatus("error");
       autoCaptureLockedRef.current = false;
       return;
     }
 
+    const crop = calculateVideoFrameCrop(video, guide);
+
+    if (crop.sourceWidth <= 0 || crop.sourceHeight <= 0) {
+      setErrorKey("captureFailed");
+      setStatus("error");
+      autoCaptureLockedRef.current = false;
+      return;
+    }
+
+    console.info("[odometer-camera] frame_crop_calculated", {
+      videoIntrinsicWidth: video.videoWidth,
+      videoIntrinsicHeight: video.videoHeight,
+      videoRenderedWidth: crop.displayedWidth,
+      videoRenderedHeight: crop.displayedHeight,
+      frameRect: crop.frameRect,
+      sourceRect: { x: crop.sourceX, y: crop.sourceY, w: crop.sourceWidth, h: crop.sourceHeight }
+    });
+
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = crop.sourceWidth;
+    canvas.height = crop.sourceHeight;
     const context = canvas.getContext("2d");
 
     if (!context) {
-      console.error("[odometer-camera] capture_failed", { stage: "getContext" });
       setErrorKey("captureFailed");
       setStatus("error");
       autoCaptureLockedRef.current = false;
@@ -175,9 +267,52 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     }
 
     try {
-      context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+      context.drawImage(
+        video,
+        crop.sourceX,
+        crop.sourceY,
+        crop.sourceWidth,
+        crop.sourceHeight,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+      // Verify pixels before upload
+      const points = [
+        { x: 0.5, y: 0.5 },
+        { x: 0.25, y: 0.25 },
+        { x: 0.75, y: 0.25 },
+        { x: 0.25, y: 0.75 },
+        { x: 0.75, y: 0.75 }
+      ];
+      let allBlack = true;
+      for (const pt of points) {
+        const px = context.getImageData(Math.floor(canvas.width * pt.x), Math.floor(canvas.height * pt.y), 1, 1).data;
+        if (px[0] > 5 || px[1] > 5 || px[2] > 5) {
+          allBlack = false;
+          break;
+        }
+      }
+
+      if (allBlack) {
+        console.warn("[odometer-camera] black_capture_detected", { sourceRect: crop });
+        setErrorKey("captureFailed");
+        setStatus("error");
+        autoCaptureLockedRef.current = false;
+        return;
+      }
+
+      // Diagnostic log for center pixel
+      const pixel = context.getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data;
+      console.info("[odometer-camera] drawImage_check (center_pixel)", { 
+        r: pixel[0], g: pixel[1], b: pixel[2], a: pixel[3],
+        isEmpty: pixel[0] === 0 && pixel[1] === 0 && pixel[2] === 0 && pixel[3] === 0
+      });
+
     } catch (err) {
-      console.error("[odometer-camera] capture_failed", { stage: "drawImage", error: err });
+      console.error("[odometer-camera] drawImage_error", err);
       setErrorKey("captureFailed");
       setStatus("error");
       autoCaptureLockedRef.current = false;
@@ -189,16 +324,15 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
     });
 
     if (!blob) {
-      console.error("[odometer-camera] capture_failed", { stage: "toBlob" });
       setErrorKey("captureFailed");
       setStatus("error");
       autoCaptureLockedRef.current = false;
       return;
     }
 
-    console.info("[odometer-camera] capture_success", {
-      width: canvas.width,
-      height: canvas.height,
+    console.info("[odometer-camera] capture_success_trace", {
+      videoIntrinsic: { width: video.videoWidth, height: video.videoHeight },
+      canvas: { width: canvas.width, height: canvas.height },
       blobSize: blob.size,
       blobType: blob.type
     });
@@ -209,47 +343,73 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
 
     const capturedAt = new Date().toISOString();
     const previewUrl = URL.createObjectURL(blob);
-    // Provide a full-frame dummy crop for downstream compatibility until fully removed
-    const dummyCrop: OdometerCrop = { x: 0, y: 0, width: 1, height: 1 };
 
     stopCamera();
     setCapture({
       blob,
       capturedAt,
-      url: previewUrl,
-      crop: dummyCrop,
+      url: previewUrl
     });
     setStatus("captured");
     setIsFinalizing(false);
-    onUsePhoto(blob, capturedAt, previewUrl, dummyCrop);
+    
+    // Start verification immediately
+    setVerifyStatus("verifying");
+    setDetectedReading(null);
+    console.info("[odometer-camera] verify_request_started", { blobSize: blob.size });
+    onVerifyPhoto(blob, capturedAt).then(({ reading, path, error }) => {
+      console.info("[odometer-camera] verify_response", { reading, path, error });
+      if (error || !reading) {
+        setVerifyStatus("error");
+        setErrorKey(error ?? "unreadable");
+        if (path) {
+          setCapture(prev => prev ? { ...prev, serverPath: path } : null);
+        }
+      } else {
+        setVerifyStatus("success");
+        setDetectedReading(reading);
+        setCapture(prev => prev ? { ...prev, serverPath: path } : null);
+      }
+    });
   }
 
   function retake() {
     if (capture?.url) {
       URL.revokeObjectURL(capture.url);
     }
+    if (capture?.serverPath && onRetake) {
+      onRetake(capture.serverPath);
+    }
+    
     setCapture(null);
+    setVerifyStatus("idle");
+    setDetectedReading(null);
     setDetectionStatus("idle");
     setErrorKey(null);
     autoCaptureLockedRef.current = false;
-    void openCamera();
+    void openCamera(facingMode);
   }
 
   function close() {
     liveRunRef.current += 1;
     clearAutoCaptureTimer();
     stopCamera();
+    if (capture?.url) {
+      URL.revokeObjectURL(capture.url);
+    }
+    if (capture?.serverPath && onRetake) {
+      onRetake(capture.serverPath);
+    }
     onClose();
   }
 
-  // ── Simplified Live Detection Loop (runs every 100ms) ──────────────────────
   useEffect(() => {
     if (status !== "ready") return;
 
     const runId = ++liveRunRef.current;
     const interval = window.setInterval(() => {
       runLiveFrameAnalysis(runId);
-    }, 100);
+    }, 200);
 
     return () => {
       window.clearInterval(interval);
@@ -274,37 +434,21 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
       return;
     }
 
-    const crop: OdometerCrop = { x: 0, y: 0, width: 1, height: 1 };
-
+    // Pass dummy crop for live visual analysis because the true crop requires layout computation 
+    // that might be expensive to do 10x per second. Just keep it simple.
     const analysis = analyzerRef.current.analyzeFrame(
       video,
-      crop.x,
-      crop.y,
-      crop.width,
-      crop.height,
+      0,
+      0,
+      1,
+      1
     );
 
     if (OCR_DEBUG) {
-      setDevCropInfo(
-        `video: ${video.videoWidth}×${video.videoHeight} | crop: x=${crop.x.toFixed(2)} y=${crop.y.toFixed(2)}`,
-      );
       setDevOcrPanel(
         `LIVE VISUAL:\ncontent=${analysis.hasDigitContent} | stable=${analysis.isStable} | ready=${analysis.isReadyForCapture}\ncontrast=${analysis.contrast} | edgeDensity=${analysis.edgeDensity}%`,
       );
     }
-
-    if (analysis.isReadyForCapture) {
-      setDetectionStatus("aligned");
-    } else {
-      setDetectionStatus("idle");
-    }
-  }
-
-  function getAlignmentLabel(): string {
-    if (isFinalizing) return t("alignment.verifying");
-    if (detectionStatus === "capturing") return t("alignment.capturing");
-    if (detectionStatus === "aligned") return t("alignment.aligned");
-    return t("alignment.hint");
   }
 
   return (
@@ -313,75 +457,114 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-white/10 p-3.5">
           <p className="text-sm font-bold text-white">{t("title")}</p>
-          <button
-            type="button"
-            onClick={close}
-            className="flex size-10 items-center justify-center rounded-lg bg-white/10 text-lg font-semibold [touch-action:manipulation] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
-            aria-label={t("close")}
-          >
-            ×
-          </button>
+          <div className="flex items-center gap-2">
+            {torchSupported && status === "ready" && (
+              <button
+                type="button"
+                onClick={toggleTorch}
+                className={`flex size-10 items-center justify-center rounded-lg text-lg font-semibold [touch-action:manipulation] ${torchEnabled ? 'bg-amber-500/30 text-amber-300' : 'bg-white/10 text-white'}`}
+                aria-label="Toggle Flash"
+              >
+                ⚡
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={toggleFacingMode}
+              className="flex size-10 items-center justify-center rounded-lg bg-white/10 text-lg font-semibold [touch-action:manipulation] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+              aria-label="Switch Camera"
+            >
+              🔄
+            </button>
+            <button
+              type="button"
+              onClick={close}
+              className="flex size-10 items-center justify-center rounded-lg bg-white/10 text-lg font-semibold [touch-action:manipulation] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+              aria-label={t("close")}
+            >
+              ×
+            </button>
+          </div>
         </div>
 
-        {/* Compact Horizontal Odometer Camera Strip Viewport */}
-        <div className="relative bg-black p-3">
-          <div className="relative w-full aspect-[3.2/1] overflow-hidden rounded-xl bg-black border-2 border-white/20">
+        {/* Viewport */}
+        <div className="relative bg-black flex-1 min-h-[300px]">
+          <div className="relative w-full h-full overflow-hidden bg-black">
             {status === "captured" && capture ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={capture.url} alt={t("previewAlt")} className="h-full w-full object-cover" />
+              <div className="absolute inset-0 flex items-center justify-center bg-black">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img 
+                  src={capture.url} 
+                  alt={t("previewAlt")} 
+                  className="max-h-full max-w-full object-contain" 
+                  onLoad={() => console.info("[odometer-camera] img_onLoad_fired", { url: capture.url })}
+                  onError={() => console.error("[odometer-camera] img_onError_fired", { url: capture.url })}
+                />
+              </div>
             ) : (
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                playsInline
-                className="h-full w-full object-cover"
-              />
+              <>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="h-full w-full object-cover"
+                />
+                
+                {/* Visual Guide Overlay */}
+                {status === "ready" && (
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
+                    {/* Shadow overlay */}
+                    
+                    {/* Clear frame in center */}
+                    <div className="relative w-[90%] aspect-[16/7] z-20">
+                       <div ref={guideRef} className="absolute inset-0 border-2 border-white rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] overflow-hidden" />
+                       <div className="absolute -top-8 inset-x-0 text-center text-xs font-bold text-white drop-shadow-md">
+                         ضع لوحة العدادات داخل الإطار
+                       </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
-            {status === "ready" ? (
-              <>
-                {/* No Guide Frame Overlay - Full Dashboard expected */}
-              </>
-            ) : null}
-
             {status === "loading" ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-xs font-semibold text-white">
+              <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-xs font-semibold text-white z-30">
                 {t("loading")}
               </div>
             ) : null}
 
             {status === "error" ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/85 px-4 text-center text-xs font-semibold leading-5 text-amber-200">
+              <div className="absolute inset-0 flex items-center justify-center bg-black/85 px-4 text-center text-xs font-semibold leading-5 text-amber-200 z-30">
                 {t(`errors.${errorKey ?? "unavailable"}`)}
               </div>
             ) : null}
           </div>
 
-          {/* Status Label Banner under strip */}
-          {status === "ready" ? (
-            <div className="mt-2.5 rounded-lg bg-white/10 px-3 py-2 text-center text-xs font-bold text-white shadow-inner">
-              {getAlignmentLabel()}
-            </div>
-          ) : null}
-
-          {OCR_DEBUG && devCropInfo ? (
-            <div className="pointer-events-none absolute inset-x-0 top-0 bg-black/80 px-2 py-0.5 text-center font-mono text-[9px] text-green-300">
-              {devCropInfo}
-            </div>
-          ) : null}
-
           {OCR_DEBUG && devOcrPanel ? (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/85 px-2 py-0.5 font-mono text-[9px] text-yellow-200 whitespace-pre">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 bg-black/85 px-2 py-0.5 font-mono text-[9px] text-yellow-200 whitespace-pre">
               {devOcrPanel}
             </div>
           ) : null}
         </div>
 
         {/* Footer controls */}
-        <div className="space-y-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="space-y-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shrink-0">
           <p className="text-center text-xs font-medium text-white/80">
-            صوّر لوحة العدادات كاملة وبوضوح
+            {status === "captured" ? (
+              verifyStatus === "verifying" ? (
+                "جاري قراءة العداد..."
+              ) : verifyStatus === "success" ? (
+                <>
+                  <span className="block mb-1 text-emerald-400">تم تحديد قراءة العداد</span>
+                  <span className="text-lg font-bold text-white">{detectedReading} كم</span>
+                </>
+              ) : (
+                <span className="text-amber-400">{t(`errors.${errorKey ?? "unreadable"}`)}</span>
+              )
+            ) : (
+              "صوّر لوحة العدادات كاملة وبوضوح"
+            )}
           </p>
 
           {status === "captured" && capture ? (
@@ -391,8 +574,13 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
               </button>
               <button
                 type="button"
-                onClick={() => onUsePhoto(capture.blob, capture.capturedAt, capture.url, capture.crop)}
-                className="min-h-12 rounded-[0.85rem] bg-primary px-4 text-sm font-semibold [touch-action:manipulation]"
+                disabled={verifyStatus !== "success" || !capture.serverPath}
+                onClick={() => {
+                  if (capture.serverPath) {
+                    onUsePhoto(capture.blob, capture.capturedAt, capture.url, capture.serverPath);
+                  }
+                }}
+                className="min-h-12 rounded-[0.85rem] bg-primary px-4 text-sm font-semibold [touch-action:manipulation] disabled:opacity-50"
               >
                 {t("usePhoto")}
               </button>
@@ -416,8 +604,4 @@ export function OdometerCamera({ onClose, onUsePhoto }: OdometerCameraProps) {
       </div>
     </div>
   );
-}
-
-function clamp01(value: number) {
-  return Math.min(1, Math.max(0, value));
 }

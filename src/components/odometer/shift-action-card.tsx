@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
-import { OdometerCamera, type OdometerCrop } from "@/components/camera/odometer-camera";
+import { OdometerCamera } from "@/components/camera/odometer-camera";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type ShiftMode = "start" | "end";
@@ -11,7 +11,6 @@ type ShiftMode = "start" | "end";
 type CapturedPhoto = {
   blob: Blob;
   capturedAt: string;
-  crop: OdometerCrop;
   url: string;
 };
 
@@ -72,28 +71,86 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
     };
   }, []);
 
+  async function handleVerifyPhoto(blob: Blob, capturedAt: string) {
+    let path = "";
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { reading: null, path: "", error: "sessionExpired" };
+
+      const captureId = crypto.randomUUID();
+      path = `${user.id}/${captureId}/${mode}.jpg`;
+      const upload = await supabase.storage
+        .from("driver-odometer")
+        .upload(path, blob, {
+          cacheControl: "3600",
+          contentType: "image/jpeg",
+          upsert: false,
+        });
+
+      if (upload.error) return { reading: null, path: "", error: "uploadFailed" };
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 35_000);
+
+      const response = await fetch("/api/driver-odometer/shift", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          action: `verify_${mode}`,
+          photoPath: path,
+          photoCapturedAt: capturedAt,
+        }),
+      });
+
+      clearTimeout(timeoutId);
+
+      const result = await response.json().catch(() => null) as OdometerShiftResponse | null;
+      if (!result) return { reading: null, path, error: "saveFailed" };
+
+      if (!response.ok || result.ok === false) {
+        const errorCode = "code" in result ? result.code : undefined;
+        return { reading: null, path, error: mapShiftError(errorCode ?? "") };
+      }
+
+      return { reading: String(result.detectedReading), path, error: undefined };
+    } catch (error) {
+      return { reading: null, path, error: "networkFailed" };
+    }
+  }
+
+  async function handleRetakePhoto(serverPath: string) {
+    try {
+      const supabase = createSupabaseBrowserClient();
+      await supabase.storage.from("driver-odometer").remove([serverPath]);
+    } catch (error) {
+      console.warn("[shift-action] Failed to delete unused photo:", error);
+    }
+  }
+
   function acceptPhoto(
     blob: Blob,
     capturedAt: string,
     url: string,
-    crop: OdometerCrop,
+    serverPath: string,
   ) {
-    const capturedPhoto = { blob, capturedAt, crop, url };
+    const capturedPhoto = { blob, capturedAt, url };
     setPhoto(capturedPhoto);
     setIsCameraOpen(false);
     setErrorKey(null);
     setServerErrorMessage(null);
     setSuccess(null);
-    void submitShift(capturedPhoto);
+    void submitShift(capturedPhoto, serverPath);
   }
 
-  async function submitShift(capturedPhoto: CapturedPhoto) {
+  async function submitShift(capturedPhoto: CapturedPhoto, serverPath: string) {
     if (isSaving) return;
 
     setIsSaving(true);
     setErrorKey(null);
     setServerErrorMessage(null);
-    setStepKey("uploading");
+    setStepKey("saving");
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -102,42 +159,14 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
       controller.abort();
     }, 35_000);
 
-    let path = "";
-
     try {
-      const supabase = createSupabaseBrowserClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setErrorKey("sessionExpired");
-        return;
-      }
-
-      const captureId = crypto.randomUUID();
-      path = `${user.id}/${captureId}/${mode}.jpg`;
-      const upload = await supabase.storage
-        .from("driver-odometer")
-        .upload(path, capturedPhoto.blob, {
-          cacheControl: "3600",
-          contentType: "image/jpeg",
-          upsert: false,
-        });
-
-      if (upload.error) {
-        setErrorKey("uploadFailed");
-        return;
-      }
-
-      setStepKey("reading");
       const response = await fetch("/api/driver-odometer/shift", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
           action: mode,
-          photoPath: path,
+          photoPath: serverPath,
           photoCapturedAt: capturedPhoto.capturedAt,
         }),
       });
@@ -188,7 +217,7 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
         for (let i = 0; i < 3; i++) {
           try {
             const check = await fetch(
-              `/api/driver-odometer/shift?action=${mode}&photoPath=${encodeURIComponent(path)}`,
+              `/api/driver-odometer/shift?action=${mode}&photoPath=${encodeURIComponent(serverPath)}`,
               { method: "GET" }
             );
             if (check.ok) {
@@ -309,7 +338,9 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
       {isCameraOpen ? (
         <OdometerCamera
           onClose={() => setIsCameraOpen(false)}
+          onVerifyPhoto={handleVerifyPhoto}
           onUsePhoto={acceptPhoto}
+          onRetake={handleRetakePhoto}
         />
       ) : null}
     </section>

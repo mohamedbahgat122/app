@@ -96,7 +96,13 @@ export async function POST(request: Request) {
   try {
     logStage(requestId, stage);
     const body = (await request.json().catch(() => null)) as RequestBody | null;
-    const action = body?.action === "start" || body?.action === "end" ? body.action : null;
+    const action = 
+      body?.action === "start" || 
+      body?.action === "end" || 
+      body?.action === "verify_start" || 
+      body?.action === "verify_end" 
+        ? body.action 
+        : null;
     photoPath = typeof body?.photoPath === "string" ? body.photoPath : "";
     const photoCapturedAt =
       typeof body?.photoCapturedAt === "string" ? body.photoCapturedAt : "";
@@ -167,8 +173,10 @@ export async function POST(request: Request) {
     stage = "server_ocr_started";
     logStage(requestId, stage);
     const image = Buffer.from(await data.arrayBuffer());
+    const ocrAction = action === "verify_start" ? "start" : action === "verify_end" ? "end" : action;
+
     const currentShiftStartReading =
-      action === "end"
+      ocrAction === "end"
         ? await loadOpenShiftStartReading({
             driverId: driverContext.driver.id,
             organizationId: driverContext.driver.organization_id,
@@ -177,7 +185,7 @@ export async function POST(request: Request) {
         : null;
 
     const verification = await verifyOdometerPhoto({
-      action,
+      action: ocrAction,
       crop: null, // Full dashboard pipeline
       currentShiftStartReading,
       driverId: driverContext.driver.id,
@@ -193,6 +201,39 @@ export async function POST(request: Request) {
     }
     logStage(requestId, "server_ocr_completed");
     logStage(requestId, "server_ocr_accepted");
+
+    const selectedCandidate = verification.candidates.find(c => c.reading === verification.detectedReading) || verification.candidates[0];
+    
+    console.info("[odometer-shift] final_reading_guard", {
+      rawDigits: selectedCandidate?.digits,
+      numericReading: selectedCandidate?.reading,
+      classification: selectedCandidate?.classification,
+      anchor: selectedCandidate?.signals.anchor,
+      signals: selectedCandidate?.signals
+    });
+
+    if (selectedCandidate && selectedCandidate.classification !== "ODOMETER") {
+      const isStrongFallback = 
+        selectedCandidate.classification === "UNKNOWN" && 
+        (selectedCandidate.signals.independentOccurrences >= 2 || 
+         selectedCandidate.signals.historyCorroborated === true ||
+         selectedCandidate.signals.firstReadingSingleCandidateCorroborated === true);
+        
+      if (!isStrongFallback) {
+        await cleanupPhoto(photoPath, admin);
+        return jsonError("ambiguous", 422);
+      }
+    }
+
+    if (action === "verify_start" || action === "verify_end") {
+      logStage(requestId, "response_sent");
+      return NextResponse.json({
+        ok: true,
+        detectedReading: verification.detectedReading,
+        confidence: verification.confidence,
+        status: "verified",
+      });
+    }
 
     const shift =
       action === "start"

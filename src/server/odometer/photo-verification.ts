@@ -40,6 +40,8 @@ export type OdometerSignals = {
   anchor:                 boolean;
   primarySource:          boolean;
   delta:                  number | null;
+  historyCorroborated?:   boolean;
+  firstReadingSingleCandidateCorroborated?: boolean;
 };
 
 export type OdometerVerificationCandidate = {
@@ -51,6 +53,7 @@ export type OdometerVerificationCandidate = {
   signals:    OdometerSignals;
   source:     string;
   reason:     string[];
+  classification: string;
 };
 
 export type OdometerVerificationResult =
@@ -295,6 +298,19 @@ export async function verifyOdometerPhoto({
       ) {
         classification = "ODOMETER";
       }
+      // 6. Weak Distance Hint ("m" only)
+      else if (
+        c.digits.length >= 4 && 
+        c.digits.length <= 9 &&
+        new RegExp(`${c.digits}\\s*m\\b`, "i").test(ctx) &&
+        !/\/h/i.test(ctx) &&
+        !/rpm/i.test(ctx)
+      ) {
+        // Gives an anchor scoring bonus, but classification remains "UNKNOWN"
+        c.hasOdometerAnchor = true;
+      }
+
+      c.classification = classification;
 
       if (process.env.NODE_ENV !== "production") {
         console.info("[odometer-photo-ocr] spatial_candidate", {
@@ -438,6 +454,75 @@ export async function verifyOdometerPhoto({
       confidence: Math.round(best.confidence),
       vehiclePreviousReading: previousReading
     });
+  }
+
+  // ------------------------------------------------------------------
+  // HARD SAVE GATE
+  // ------------------------------------------------------------------
+  if (best.classification !== "ODOMETER") {
+    // Must have strong fleet fallback if it's UNKNOWN
+    if (best.classification === "UNKNOWN") {
+      // ------------------------------------------------------------------
+      // History Corroborated Unknown Check
+      // ------------------------------------------------------------------
+      const plausibleCandidates = candidates.filter(
+        (c) => c.score >= 20 && !["RPM", "SPEED", "TEMP", "CLOCK"].includes(c.classification)
+      );
+
+      if (
+        best.confidence >= 80 &&
+        previousReading !== null &&
+        best.reading >= previousReading &&
+        (best.reading - previousReading) <= 1000 &&
+        plausibleCandidates.length === 1
+      ) {
+        best.signals.historyCorroborated = true;
+        console.info("[odometer-photo-ocr] history_correlated_unknown_accepted", {
+          rawDigits: best.digits,
+          numericReading: best.reading,
+          confidence: Math.round(best.confidence),
+          previousReading: previousReading,
+          delta: best.reading - previousReading,
+        });
+      }
+
+      // ------------------------------------------------------------------
+      // First-Reading Safe Fallback
+      // ------------------------------------------------------------------
+      if (
+        previousReading === null &&
+        plausibleCandidates.length === 1 &&
+        best.digits.length >= 5 &&
+        best.digits.length <= 9 &&
+        best.confidence >= 20 &&
+        best.score >= 60
+      ) {
+        best.signals.firstReadingSingleCandidateCorroborated = true;
+        console.info("[odometer-photo-ocr] single_candidate_first_reading_accepted", {
+          rawDigits: best.digits,
+          confidence: Math.round(best.confidence),
+          score: best.score,
+          classification: best.classification
+        });
+      }
+
+      const isStrongFallback = 
+        (best.signals.independentOccurrences >= 2 && (previousReading === null || best.reading >= previousReading)) ||
+        best.signals.historyCorroborated === true ||
+        best.signals.firstReadingSingleCandidateCorroborated === true;
+        
+      if (!isStrongFallback) {
+        logOcrStage("unknown_candidate_insufficient_evidence", {
+          reading: best.reading,
+          occurrences: best.signals.independentOccurrences,
+          classification: best.classification
+        });
+        return rejected("ambiguous", candidates, previousReading, best.confidence);
+      }
+    } else {
+      // It's RPM, SPEED, TEMP, or CLOCK. Should have been rejected earlier, but just in case:
+      return rejected("ambiguous", candidates, previousReading, best.confidence);
+    }
   }
 
   return {
@@ -662,28 +747,30 @@ function scoreCandidates({
       }
     }
 
+    const readingScore    = bestConfidence + occurrenceBonus + anchorBonus + lengthBonus + primaryBonus + regionBonus;
+
+    const signals: OdometerSignals = {
+      independentOccurrences: indepCount,
+      anchor:                 hasAnchor,
+      primarySource:          hasPrimary,
+      delta:                  delta,
+    };
+
+    // Propagate classification (prefer ODOMETER if any occurrence had it, else whatever the first one was)
+    let classification = occurrences[0]?.classification ?? "UNKNOWN";
+    if (occurrences.some(c => c.classification === "ODOMETER")) {
+      classification = "ODOMETER";
+    }
+
     scored.push({
       reading,
       digits,
       confidence: bestConfidence,
-      score: Math.round(
-        bestConfidence +
-        occurrenceBonus +
-        anchorBonus +
-        lengthBonus +
-        primaryBonus +
-        regionBonus +
-        deltaScore -
-        monotonicPenalty,
-      ),
-      signals: {
-        independentOccurrences: indepCount,
-        anchor:                 hasAnchor,
-        primarySource:          hasPrimary,
-        delta:                  delta,
-      },
-      source: occurrences.map((c) => c.source).join(", "),
+      score:      Math.round(readingScore + deltaScore - monotonicPenalty),
+      signals,
+      source:     occurrences[0]!.source,
       reason,
+      classification,
     });
   }
 
