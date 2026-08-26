@@ -35,12 +35,20 @@ export type OdometerPhotoCrop = {
   height: number;
 };
 
+export type OdometerSignals = {
+  independentOccurrences: number;
+  anchor:                 boolean;
+  primarySource:          boolean;
+  delta:                  number | null;
+};
+
 export type OdometerVerificationCandidate = {
   reading:    number;
   /** Raw OCR digit string — preserves leading zeros (e.g. "084649"). */
   digits:     string;
   confidence: number;
   score:      number;
+  signals:    OdometerSignals;
   source:     string;
   reason:     string[];
 };
@@ -52,6 +60,8 @@ export type OdometerVerificationResult =
       /** Raw OCR digit string with leading zeros preserved (e.g. "084649"). */
       rawDigits:       string;
       confidence:      number;
+      score:           number;
+      signals:         OdometerSignals;
       candidates:      OdometerVerificationCandidate[];
       rejectionReason: null;
       previousReading: number | null;
@@ -67,6 +77,8 @@ export type OdometerVerificationResult =
         | "below_previous"
         | "end_below_start"
         | "conflict"
+        | "ambiguous"
+        | "extreme_delta_uncorroborated"
         | "image_dimensions_unavailable"
         | "ocr_failed";
       previousReading: number | null;
@@ -84,7 +96,10 @@ type RawCandidate = OcrRawCandidate;
 // Scoring constants
 // ---------------------------------------------------------------------------
 
-/** Minimum composite score for fallback / multi-pass candidates */
+/**
+ * Minimum composite score for fallback / multi-pass candidates.
+ * Can be relaxed if independent evidence is high.
+ */
 const minimumAcceptedScore = 92;
 
 /**
@@ -93,6 +108,12 @@ const minimumAcceptedScore = 92;
  * without needing anchor keywords, occurrence bonuses, or multiple passes.
  */
 const minimumPrimaryAcceptedScore = 55;
+
+// Delta scoring constants
+const DELTA_BONUS_HEALTHY = 1000;
+const DELTA_BONUS_MODERATE = 10000;
+const DELTA_PENALTY_MODERATE = 50000;
+const DELTA_EXTREME = 50000;
 
 /**
  * Minimum Tesseract confidence needed before primaryCropBonus is applied.
@@ -177,42 +198,15 @@ export async function verifyOdometerPhoto({
       }
     }
 
+    // ------------------------------------------------------------------
     // Score and rank candidates
+    // ------------------------------------------------------------------
     candidates = scoreCandidates({
       action,
       currentShiftStartReading,
       previousReading,
       rawCandidates: ocrResult.candidates,
     });
-
-    // ------------------------------------------------------------------
-    // DIRECT CONSENSUS ACCEPTANCE
-    // If the exact same 4-9 digit reading appears multiple times and is
-    // the ONLY plausible reading found, accept it immediately.
-    // ------------------------------------------------------------------
-    const consensusResult = tryDirectConsensusAcceptance({
-      candidates,
-      action,
-      previousReading,
-      currentShiftStartReading,
-    });
-    if (consensusResult !== null) return consensusResult;
-
-    // ------------------------------------------------------------------
-    // DIRECT ANCHORED ACCEPTANCE
-    // If exactly one unambiguous km/ODO-anchored candidate survives and
-    // it passes monotonic validation, accept it immediately without
-    // requiring a score threshold.
-    // "084649km" → anchor hit → direct accept.
-    // ------------------------------------------------------------------
-    const directResult = tryDirectAnchoredAcceptance({
-      candidates,
-      action,
-      previousReading,
-      currentShiftStartReading,
-    });
-    if (directResult !== null) return directResult;
-
   } catch (error) {
     if (process.env.NODE_ENV !== "production") {
       console.error("[odometer-photo-ocr] unexpected error", {
@@ -251,28 +245,42 @@ export async function verifyOdometerPhoto({
   }
 
   // ------------------------------------------------------------------
-  // Conflict check
+  // Extreme Delta Corroboration Check
   // ------------------------------------------------------------------
   if (
-    second &&
-    second.reading !== best.reading &&
-    second.score   >= minimumAcceptedScore &&
-    Math.abs(second.score - best.score) <= 8
+    best.signals.delta !== null && 
+    best.signals.delta > DELTA_EXTREME
   ) {
-    return rejected("conflict", candidates, previousReading, best.confidence);
+    if (best.signals.independentOccurrences < 2 && !best.signals.anchor) {
+      logOcrStage("extreme_delta_uncorroborated", {
+        reading: best.reading,
+        delta: best.signals.delta,
+        occurrences: best.signals.independentOccurrences,
+        anchor: best.signals.anchor
+      });
+      return rejected("extreme_delta_uncorroborated", candidates, previousReading, best.confidence);
+    }
   }
 
   // ------------------------------------------------------------------
-  // Score threshold — lower bar for primary-crop candidates
+  // Ambiguity / Conflict check
   // ------------------------------------------------------------------
-  const scoreThreshold = isPrimarySource(best.source)
-    ? minimumPrimaryAcceptedScore
-    : minimumAcceptedScore;
+  // If the second best candidate is very close in score but represents
+  // a different reading, we must reject rather than guess.
+  if (
+    second &&
+    second.reading !== best.reading &&
+    (best.score - second.score) <= 15
+  ) {
+    return rejected("ambiguous", candidates, previousReading, best.confidence);
+  }
 
-  if (best.score < scoreThreshold) {
+  // ------------------------------------------------------------------
+  // Absolute minimum score safety
+  // ------------------------------------------------------------------
+  if (best.score < 20) {
     logOcrStage("low_confidence", {
       score:     best.score,
-      threshold: scoreThreshold,
       source:    best.source,
       reading:   best.reading,
     });
@@ -284,6 +292,7 @@ export async function verifyOdometerPhoto({
     reading:    best.reading,
     score:      best.score,
     source:     best.source,
+    signals:    best.signals,
   });
 
   logMemory("after_candidate_selected");
@@ -293,170 +302,14 @@ export async function verifyOdometerPhoto({
     detectedReading: best.reading,
     rawDigits:       best.digits,
     confidence:      Math.round(best.confidence),
+    score:           best.score,
+    signals:         best.signals,
     candidates,
     rejectionReason: null,
     previousReading,
   };
 }
 
-// ---------------------------------------------------------------------------
-// Direct consensus acceptance
-// ---------------------------------------------------------------------------
-
-/**
- * Accepts a reading immediately when there is exactly one unique plausible
- * odometer reading in the entire photo, and it was detected multiple times
- * (consensus), and it passes monotonic validation.
- * Bypasses all score thresholds.
- */
-function tryDirectConsensusAcceptance({
-  candidates,
-  action,
-  previousReading,
-  currentShiftStartReading,
-}: {
-  candidates:               OdometerVerificationCandidate[];
-  action:                   OdometerAction;
-  previousReading:          number | null;
-  currentShiftStartReading?: number | null;
-}): OdometerVerificationResult | null {
-  if (candidates.length === 0) return null;
-
-  // We need to know if there is exactly ONE distinct reading across ALL valid candidates
-  const distinctReadings = new Set(candidates.map((c) => c.reading));
-  if (distinctReadings.size > 1) {
-    // There is ambiguity (e.g. 084649 and 123456 were both found).
-    // Consensus logic only applies when the OCR is absolutely certain there
-    // is only one number on the dashboard that looks like an odometer.
-    return null;
-  }
-
-  const best = candidates[0]!;
-
-  // Look for the "occurrences:N" marker we added in scoreCandidates
-  const occurrencesMarker = best.reason.find((r) => r.startsWith("occurrences:"));
-  const numOccurrences = occurrencesMarker ? parseInt(occurrencesMarker.split(":")[1] || "1", 10) : 1;
-
-  if (numOccurrences < 2) {
-    // Only found once. Not a consensus. Fall through to other checks.
-    return null;
-  }
-
-  // Monotonic validation
-  if (
-    action === "end" &&
-    currentShiftStartReading !== null &&
-    currentShiftStartReading !== undefined &&
-    best.reading < currentShiftStartReading
-  ) {
-    return rejected("end_below_start", candidates, previousReading, best.confidence);
-  }
-
-  if (previousReading !== null && best.reading < previousReading) {
-    return rejected("below_previous", candidates, previousReading, best.confidence);
-  }
-
-  logOcrStage("consensus_odometer_accepted", {
-    rawDigits:      best.digits,
-    numericReading: best.reading,
-    occurrences:    numOccurrences,
-  });
-
-  return {
-    accepted:        true,
-    detectedReading: best.reading,
-    rawDigits:       best.digits,
-    confidence:      Math.round(best.confidence),
-    candidates,
-    rejectionReason: null,
-    previousReading,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Direct anchored acceptance
-// ---------------------------------------------------------------------------
-
-/**
- * Accepts a reading immediately when there is exactly one unambiguous
- * anchored candidate (km/ODO/TOTAL) and it passes monotonic validation.
- * Bypasses all score thresholds.
- *
- * Returns null when:
- * - No anchored candidates exist  → fall through to scoring
- * - Multiple DIFFERENT anchored readings → ambiguous, fall through to scoring
- * - Monotonic validation fails     → return rejection result
- */
-function tryDirectAnchoredAcceptance({
-  candidates,
-  action,
-  previousReading,
-  currentShiftStartReading,
-}: {
-  candidates:               OdometerVerificationCandidate[];
-  action:                   OdometerAction;
-  previousReading:          number | null;
-  currentShiftStartReading?: number | null;
-}): OdometerVerificationResult | null {
-  // Collect candidates that have at least one anchored occurrence.
-  // scoreCandidates() groups by digits string, so source is a joined list.
-  // We re-check the anchor flag via the reason array marker we set, but
-  // the simplest approach is to re-derive from the raw score: candidates
-  // produced by an anchor pattern receive +28 anchorBonus, and their
-  // reason array does NOT contain a monotonic-penalty entry.
-  //
-  // Instead, use a second, simpler filter: a candidate qualifies for direct
-  // acceptance when it was produced by an anchored OCR pattern AND its
-  // score is not already penalised to zero by monotonic failure.
-  const anchored = candidates.filter(
-    (c) => c.reason.some((r) => r === "anchored")
-  );
-
-  if (anchored.length === 0) return null;
-
-  // Distinct reading values among anchored candidates
-  const distinctReadings = new Set(anchored.map((c) => c.reading));
-  if (distinctReadings.size > 1) {
-    // Multiple different anchored readings — ambiguous, defer to scoring
-    return null;
-  }
-
-  const best = anchored[0]!;
-
-  // Monotonic validation (same rules as the main path)
-  if (
-    action === "end" &&
-    currentShiftStartReading !== null &&
-    currentShiftStartReading !== undefined &&
-    best.reading < currentShiftStartReading
-  ) {
-    return rejected("end_below_start", candidates, previousReading, best.confidence);
-  }
-
-  if (previousReading !== null && best.reading < previousReading) {
-    return rejected("below_previous", candidates, previousReading, best.confidence);
-  }
-
-  // Determine what anchor was hit (km vs ODO/TOTAL) for the log
-  const anchorLabel = best.reason.find((r) => r.startsWith("anchor:")) ?? "anchor";
-
-  logOcrStage("direct_odometer_accepted", {
-    rawDigits:      best.digits,
-    numericReading: best.reading,
-    anchor:         anchorLabel.replace("anchor:", "").trim() || "km",
-    source:         best.source,
-  });
-
-  return {
-    accepted:        true,
-    detectedReading: best.reading,
-    rawDigits:       best.digits,
-    confidence:      Math.round(best.confidence),
-    candidates,
-    rejectionReason: null,
-    previousReading,
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Candidate scoring
@@ -490,6 +343,108 @@ function scoreCandidates({
     grouped.set(candidate.digits, existing);
   }
 
+  // ------------------------------------------------------------------
+  // RECONCILIATION: spurious/missing leading digits
+  // ------------------------------------------------------------------
+  const toDelete = new Set<string>();
+
+  const countIndependentSources = (occs: RawCandidate[]) => {
+    const base = new Set<string>();
+    for (const c of occs) {
+      base.add(c.source.split(":")[0]!);
+    }
+    return base.size;
+  };
+
+  const digitsKeys = Array.from(grouped.keys());
+
+  for (let i = 0; i < digitsKeys.length; i++) {
+    for (let j = i + 1; j < digitsKeys.length; j++) {
+      const a = digitsKeys[i]!;
+      const b = digitsKeys[j]!;
+
+      if (toDelete.has(a) || toDelete.has(b)) continue;
+
+      let sDigits: string;
+      let lDigits: string;
+
+      if (a.length === b.length + 1 && a.endsWith(b)) {
+        lDigits = a;
+        sDigits = b;
+      } else if (b.length === a.length + 1 && b.endsWith(a)) {
+        lDigits = b;
+        sDigits = a;
+      } else {
+        continue; // Not a single leading digit difference
+      }
+
+      const sOccs = grouped.get(sDigits)!;
+      const lOccs = grouped.get(lDigits)!;
+
+      const sIndep = countIndependentSources(sOccs);
+      const lIndep = countIndependentSources(lOccs);
+
+      const sAnchor = sOccs.some((c) => c.hasOdometerAnchor);
+      const lAnchor = lOccs.some((c) => c.hasOdometerAnchor);
+
+      let winner: string | null = null;
+      let loser: string | null = null;
+      let reason = "";
+
+      const sScore = sIndep + (sAnchor ? 10 : 0);
+      const lScore = lIndep + (lAnchor ? 10 : 0);
+
+      if (sScore > lScore && sIndep >= 2) {
+        winner = sDigits;
+        loser = lDigits;
+        reason = "spurious_leading_digit";
+      } else if (lScore > sScore && lIndep >= 2) {
+        winner = lDigits;
+        loser = sDigits;
+        reason = "missing_leading_digit";
+      } else if (sAnchor && !lAnchor) {
+        winner = sDigits;
+        loser = lDigits;
+        reason = "spurious_leading_digit_anchor";
+      } else if (lAnchor && !sAnchor) {
+        winner = lDigits;
+        loser = sDigits;
+        reason = "missing_leading_digit_anchor";
+      }
+
+      if (winner && loser) {
+        const winnerOccs = grouped.get(winner)!;
+        const loserOccs = grouped.get(loser)!;
+
+        logOcrStage("candidate_reconciled", {
+          selectedRawDigits: winner,
+          rejectedVariant: loser,
+          reason,
+          selectedOccurrences: countIndependentSources(winnerOccs),
+          variantOccurrences: countIndependentSources(loserOccs),
+        });
+
+        // Merge evidence so the winner is even stronger
+        winnerOccs.push(...loserOccs);
+        toDelete.add(loser);
+      }
+    }
+  }
+
+  for (const del of toDelete) {
+    grouped.delete(del);
+  }
+
+  // Log final grouped candidates in development
+  if (process.env.NODE_ENV !== "production") {
+    const summary = Array.from(grouped.entries()).map(([k, v]) => ({
+      digits: k,
+      independentSources: countIndependentSources(v),
+      anchored: v.some(c => c.hasOdometerAnchor)
+    }));
+    logOcrStage("candidates_grouped", { summary });
+  }
+
   const scored: OdometerVerificationCandidate[] = [];
 
   for (const [digits, occurrences] of grouped) {
@@ -502,17 +457,21 @@ function scoreCandidates({
     const lengthBonus     = scoreDigitLength(digits.length);
     const regionBonus     = Math.max(...occurrences.map((c) => c.centerBias));
 
+    const hasPrimary = occurrences.some((c) => isPrimarySource(c.source));
+
     // Primary bonus applies at a lower confidence gate than before (15, was 35).
     const primaryBonus =
-      occurrences.some((c) => isPrimarySource(c.source)) &&
+      hasPrimary &&
       bestConfidence >= minimumPrimaryConfidence
         ? primaryCropBonus
         : 0;
 
+    const indepCount = countIndependentSources(occurrences);
     const reason: string[] = [
       `${occurrences.length} OCR pass(es)`,
+      `${indepCount} independent pass(es)`,
       `${digits.length} digit(s)`,
-      `occurrences:${occurrences.length}` // Marker for consensus logic
+      `independent_occurrences:${indepCount}` // Marker for consensus logic
     ];
     const hasAnchor = occurrences.some((c) => c.hasOdometerAnchor);
     if (hasAnchor) {
@@ -527,13 +486,27 @@ function scoreCandidates({
     }
 
     let monotonicPenalty = 0;
+    let deltaScore = 0;
+    let delta: number | null = null;
 
     if (previousReading !== null) {
-      if (reading < previousReading) {
+      delta = reading - previousReading;
+      if (delta < 0) {
         monotonicPenalty += 90;
         reason.push("below previous reading");
       } else {
-        reason.push("monotonic vs previous reading");
+        if (delta <= DELTA_BONUS_HEALTHY) {
+          deltaScore = 20;
+          reason.push("healthy historical delta");
+        } else if (delta <= DELTA_BONUS_MODERATE) {
+          deltaScore = 5;
+          reason.push("moderate historical delta");
+        } else if (delta > DELTA_PENALTY_MODERATE) {
+          deltaScore = -30;
+          reason.push("extreme historical delta penalty");
+        } else {
+          reason.push("large historical delta");
+        }
       }
     }
 
@@ -556,9 +529,16 @@ function scoreCandidates({
         anchorBonus +
         lengthBonus +
         primaryBonus +
-        regionBonus -
+        regionBonus +
+        deltaScore -
         monotonicPenalty,
       ),
+      signals: {
+        independentOccurrences: indepCount,
+        anchor:                 hasAnchor,
+        primarySource:          hasPrimary,
+        delta:                  delta,
+      },
       source: occurrences.map((c) => c.source).join(", "),
       reason,
     });
