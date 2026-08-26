@@ -168,6 +168,74 @@ export async function verifyOdometerPhoto({
   let candidates: OdometerVerificationCandidate[];
 
   try {
+    if (expectedDigits) {
+      logOcrStage("manual_photo_gate_started");
+      // @ts-ignore
+      const sharp = eval("require")("sharp");
+      let imgW = imageSize.width || 0;
+      let imgH = imageSize.height || 0;
+      
+      try {
+        const meta = await sharp(image, { failOn: "none" }).metadata();
+        imgW = meta.width || imgW;
+        imgH = meta.height || imgH;
+        
+        if (imgW < 100 || imgH < 100) {
+          logOcrStage("image_unreadable", { reason: "dimensions_too_small" });
+          return rejected("image_unreadable" as any, [], previousReading);
+        }
+        
+        const grayStats = await sharp(image, { failOn: "none" }).grayscale().stats();
+        const mean = grayStats.channels[0].mean;
+        const stdev = grayStats.channels[0].stdev;
+        
+        if (stdev < 2 || mean < 5) {
+          logOcrStage("image_unreadable", { mean, stdev, reason: "blank_or_black" });
+          return rejected("image_unreadable" as any, [], previousReading);
+        }
+      } catch (err) {
+        logOcrStage("image_stats_error", { error: String(err) });
+        return rejected("image_unreadable" as any, [], previousReading);
+      }
+      
+      const readingVal = Number(expectedDigits);
+      const mappedCands: OdometerVerificationCandidate[] = [{
+        reading: readingVal,
+        digits: expectedDigits,
+        confidence: 100,
+        score: 100,
+        signals: { independentOccurrences: 1, anchor: false, primarySource: false, delta: null },
+        source: "manual",
+        reason: [],
+        classification: "ODOMETER"
+      }];
+
+      if (
+        action === "end" &&
+        currentShiftStartReading !== null &&
+        currentShiftStartReading !== undefined &&
+        readingVal < currentShiftStartReading
+      ) {
+        return rejected("end_below_start", mappedCands, previousReading, 100);
+      }
+
+      if (previousReading !== null && readingVal < previousReading) {
+        return rejected("below_previous", mappedCands, previousReading, 100);
+      }
+      
+      return {
+        accepted:        true,
+        detectedReading: readingVal,
+        rawDigits:       expectedDigits,
+        confidence:      100,
+        score:           100,
+        signals:         { independentOccurrences: 1, anchor: false, primarySource: false, delta: null },
+        candidates:      mappedCands,
+        rejectionReason: null,
+        previousReading,
+      };
+    }
+
     // ------------------------------------------------------------------
     // Spawn OCR child process
     // All Sharp + Tesseract execution happens in the child.
@@ -356,102 +424,7 @@ export async function verifyOdometerPhoto({
     // ------------------------------------------------------------------
     let finalRawCandidates: RawCandidate[];
 
-    if (expectedDigits) {
-      const words = ocrResult.words || [];
-      const allText = words.map(w => w.text.toLowerCase().trim()).join(" ");
-      let score = 0;
-      const signals: string[] = [];
-
-      // Strong Dashboard anchors
-      if (/(km|mi|km\/h|mph|rpm|odo|total|trip|كم|كيلومتر)/i.test(allText)) {
-        score += 50;
-        signals.push("dashboard_anchor");
-      }
-      
-      const prnd = allText.match(/\b[p|r|n|d]\b/gi);
-      if (prnd && prnd.length >= 2) {
-        score += 20;
-        signals.push("gear_letters");
-      }
-      
-      let gaugeNums = 0;
-      for (const w of words) {
-        if (/^\d{1,3}$/.test(w.text)) gaugeNums++;
-      }
-      if (gaugeNums >= 3) {
-        score += 30;
-        signals.push("gauge_scale_numbers");
-      }
-      
-      const uniqueNumericRegions = new Set(ocrResult.candidates.map(c => c.digits)).size;
-      if (uniqueNumericRegions >= 2) {
-        score += 20;
-        signals.push("multiple_numeric_regions");
-      }
-
-      const isDocument = /(invoice|receipt|date|tax|total due|amount|فاتورة|ايصال|تاريخ|ضريبة)/i.test(allText);
-      if (isDocument) {
-        score -= 100;
-        signals.push("document_layout");
-      }
-
-      let accepted = score >= 50;
-      
-      if (!accepted && !isDocument && uniqueNumericRegions >= 2 && gaugeNums >= 1) {
-        accepted = true;
-        signals.push("digital_fallback");
-      }
-
-      logOcrStage("dashboard_evidence", { score, signals, accepted });
-
-      if (!accepted) {
-        if (ocrResult.candidates.length === 0 && words.length === 0) {
-          logOcrStage("image_unreadable", { expectedDigits });
-          return rejected("image_unreadable" as any, [], previousReading);
-        }
-        return rejected("not_dashboard" as any, [], previousReading);
-      }
-      
-      const readingVal = Number(expectedDigits);
-
-      const mappedCands: OdometerVerificationCandidate[] = [{
-        reading: readingVal,
-        digits: expectedDigits,
-        confidence: 100,
-        score: 100,
-        signals: { independentOccurrences: 1, anchor: false, primarySource: false, delta: null },
-        source: "manual",
-        reason: [],
-        classification: "ODOMETER"
-      }];
-
-      if (
-        action === "end" &&
-        currentShiftStartReading !== null &&
-        currentShiftStartReading !== undefined &&
-        readingVal < currentShiftStartReading
-      ) {
-        return rejected("end_below_start", mappedCands, previousReading, 100);
-      }
-
-      if (previousReading !== null && readingVal < previousReading) {
-        return rejected("below_previous", mappedCands, previousReading, 100);
-      }
-      
-      return {
-        accepted:        true,
-        detectedReading: readingVal,
-        rawDigits:       expectedDigits,
-        confidence:      100,
-        score:           100,
-        signals:         { independentOccurrences: 1, anchor: false, primarySource: false, delta: null },
-        candidates:      mappedCands,
-        rejectionReason: null,
-        previousReading,
-      };
-    } else {
-      finalRawCandidates = directMatches.length > 0 ? directMatches : fallbackCandidates;
-    }
+    finalRawCandidates = directMatches.length > 0 ? directMatches : fallbackCandidates;
 
     if (process.env.NODE_ENV !== "production") {
       if (directMatches.length > 0) {

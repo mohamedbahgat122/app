@@ -133,7 +133,7 @@
       "invalidInput": "Enter a valid odometer reading",
       "endBelowStart": "End reading cannot be lower than the start reading",
       "enteredReadingMismatch": "The entered reading does not match the photo",
-      "imageUnreadable": "The photo is unclear, please retake it",
+      "imageUnreadable": "Cannot use the photo. Retake the dashboard clearly.",
       "notDashboard": "The photo does not look like a vehicle dashboard. Please take a clear photo of the dashboard.",
       "belowPrevious": "The reading is lower than the last recorded reading for the vehicle",
       "readingBelowPrevious": "The reading is lower than the last recorded reading for the vehicle",
