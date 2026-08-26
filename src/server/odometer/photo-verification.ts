@@ -42,6 +42,7 @@ export type OdometerSignals = {
   delta:                  number | null;
   historyCorroborated?:   boolean;
   firstReadingSingleCandidateCorroborated?: boolean;
+  strongGeometry?:        boolean;
 };
 
 export type OdometerVerificationCandidate = {
@@ -310,6 +311,20 @@ export async function verifyOdometerPhoto({
         c.hasOdometerAnchor = true;
       }
 
+      // 7. Strong Digital Display Geometry
+      let hasStrongDigitalDisplayGeometry = false;
+      if (c.bbox && c.digits.length >= 5 && c.digits.length <= 9) {
+        const cWidth = c.bbox.x1 - c.bbox.x0;
+        const cHeight = c.bbox.y1 - c.bbox.y0;
+        if (cHeight > 0) {
+          const ratio = cWidth / cHeight;
+          if (ratio >= 2.0 && ratio <= 12.0) {
+            hasStrongDigitalDisplayGeometry = true;
+          }
+        }
+      }
+      (c as any).hasStrongDigitalDisplayGeometry = hasStrongDigitalDisplayGeometry;
+
       c.classification = classification;
 
       if (process.env.NODE_ENV !== "production") {
@@ -494,8 +509,11 @@ export async function verifyOdometerPhoto({
         plausibleCandidates.length === 1 &&
         best.digits.length >= 5 &&
         best.digits.length <= 9 &&
-        best.confidence >= 20 &&
-        best.score >= 60
+        (
+          best.signals.independentOccurrences >= 2 ||
+          best.signals.anchor ||
+          best.signals.strongGeometry
+        )
       ) {
         best.signals.firstReadingSingleCandidateCorroborated = true;
         console.info("[odometer-photo-ocr] single_candidate_first_reading_accepted", {
@@ -615,29 +633,26 @@ function scoreCandidates({
       const sAnchor = sOccs.some((c) => c.hasOdometerAnchor);
       const lAnchor = lOccs.some((c) => c.hasOdometerAnchor);
 
+      const hasOverlap = sOccs.some((s) => {
+        if (!s.bbox) return false;
+        return lOccs.some((l) => {
+          if (!l.bbox) return false;
+          const overlapX = Math.max(0, Math.min(s.bbox!.x1, l.bbox!.x1) - Math.max(s.bbox!.x0, l.bbox!.x0));
+          const overlapY = Math.max(0, Math.min(s.bbox!.y1, l.bbox!.y1) - Math.max(s.bbox!.y0, l.bbox!.y0));
+          return overlapX > 0 && overlapY > 0;
+        });
+      });
+
       let winner: string | null = null;
       let loser: string | null = null;
       let reason = "";
 
-      const sScore = sIndep + (sAnchor ? 10 : 0);
-      const lScore = lIndep + (lAnchor ? 10 : 0);
-
-      if (sScore > lScore && sIndep >= 2) {
-        winner = sDigits;
-        loser = lDigits;
-        reason = "spurious_leading_digit";
-      } else if (lScore > sScore && lIndep >= 2) {
+      // TRUNCATION RECONCILIATION
+      // Merge shorter into longer only if longer was observed, and they overlap.
+      if (lIndep >= 1 && hasOverlap && (lDigits.startsWith(sDigits) || lDigits.endsWith(sDigits))) {
         winner = lDigits;
         loser = sDigits;
-        reason = "missing_leading_digit";
-      } else if (sAnchor && !lAnchor) {
-        winner = sDigits;
-        loser = lDigits;
-        reason = "spurious_leading_digit_anchor";
-      } else if (lAnchor && !sAnchor) {
-        winner = lDigits;
-        loser = sDigits;
-        reason = "missing_leading_digit_anchor";
+        reason = "truncation_reconciliation_merge";
       }
 
       if (winner && loser) {
@@ -754,6 +769,7 @@ function scoreCandidates({
       anchor:                 hasAnchor,
       primarySource:          hasPrimary,
       delta:                  delta,
+      strongGeometry:         occurrences.some((c: any) => c.hasStrongDigitalDisplayGeometry),
     };
 
     // Propagate classification (prefer ODOMETER if any occurrence had it, else whatever the first one was)

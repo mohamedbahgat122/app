@@ -177,32 +177,61 @@ async function main() {
   let allWords = [];
 
   try {
-    // 1. PRIMARY PATH: Full-frame with sparse text
-    log.push({ stage: "starting_primary_full_frame" });
     await worker.setParameters({
       tessedit_char_whitelist: "0123456789,. kmKMODOodoTOTALtotalTRIPtripTEMPtemp:C",
       tessedit_pageseg_mode: PSM.SPARSE_TEXT, preserve_interword_spaces: "1", user_defined_dpi: "220",
     });
-    const fullRes = await runPass(worker, normalizedBuf, "full-frame", 0, log);
-    allCandidates.push(...fullRes.candidates);
-    allWords.push(...fullRes.words);
 
-    // If full frame returned nothing (rare), fallback to a center strip just in case
-    if (imgW > 0 && imgH > 0 && (allWords.length === 0 || allCandidates.length === 0)) {
-      log.push({ stage: "starting_fallback_center_strip" });
-      const cr = clampRect({ left: Math.round(imgW * 0.08), top: Math.round(imgH * 0.36),
-        width: Math.round(imgW * 0.84), height: Math.round(imgH * 0.28) }, imgW, imgH);
-      const centerBuf = await sharp(normalizedBuf, { failOn: "none" })
-        .extract(cr).resize({ width: Math.max(1, cr.width * 2), withoutEnlargement: false })
-        .grayscale().normalize().sharpen({ sigma: 0.8 }).png().toBuffer();
-      await worker.setParameters({
-        tessedit_char_whitelist: "0123456789,. kmKMODOodoTOTALtotalTRIPtripTEMPtemp:C",
-        tessedit_pageseg_mode: PSM.SINGLE_LINE, preserve_interword_spaces: "1", user_defined_dpi: "220",
-      });
-      const r3 = await runPass(worker, centerBuf, "center-dashboard-strip", 8, log);
-      allCandidates.push(...r3.candidates);
-      allWords.push(...r3.words);
+    const passStartTime = Date.now();
+    const passes = [
+      { id: "passA", buf: normalizedBuf, name: "original" },
+      { id: "passB", buf: await sharp(normalizedBuf, { failOn: "none" }).grayscale().normalize().sharpen({ sigma: 0.8 }).png().toBuffer(), name: "enhanced" },
+      { id: "passC", buf: await sharp(normalizedBuf, { failOn: "none" }).grayscale().linear(1.5, -0.2).png().toBuffer(), name: "high_contrast" },
+      { id: "passD", buf: await sharp(normalizedBuf, { failOn: "none" }).median(3).threshold(128).png().toBuffer(), name: "thresholded" }
+    ];
+
+    const passDurations = [];
+
+    for (const p of passes) {
+      log.push({ stage: `starting_${p.id}` });
+      const startT = Date.now();
+      const res = await runPass(worker, p.buf, p.id, 0, log);
+      const durationMs = Date.now() - startT;
+      
+      passDurations.push({ pass: p.id, durationMs, candidates: res.candidates.length });
+      
+      allCandidates.push(...res.candidates);
+      allWords.push(...res.words);
+
+      // Early exit if a 5-9 digit reading is corroborated across 2 independent passes
+      // and there are no other competing plausible 5-9 digit readings.
+      const grouped = new Map();
+      for (const c of allCandidates) {
+        if (!grouped.has(c.digits)) grouped.set(c.digits, new Set());
+        grouped.get(c.digits).add(c.source.split(":")[0]);
+      }
+      
+      let clearWinnerCount = 0;
+      let otherPlausibleCount = 0;
+      
+      for (const [digits, sources] of grouped.entries()) {
+        if (digits.length >= 5 && digits.length <= 9) {
+          if (sources.size >= 2) {
+            clearWinnerCount++;
+          } else {
+            otherPlausibleCount++;
+          }
+        }
+      }
+      
+      if (clearWinnerCount === 1 && otherPlausibleCount === 0) {
+         log.push({ stage: "early_exit_decisive_corroboration", pass: p.id });
+         break;
+      }
     }
+
+    const totalDurationMs = Date.now() - passStartTime;
+    log.push({ stage: "ensemble_pass_result", passes: passDurations, totalDurationMs });
 
   } finally {
     await worker.terminate().catch(() => undefined);

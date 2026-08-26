@@ -488,7 +488,7 @@ export function OdometerCamera({ onClose, onVerifyPhoto, onUsePhoto, onRetake }:
         </div>
 
         {/* Viewport */}
-        <div className="relative bg-black flex-1 min-h-[300px]">
+        <div className="relative bg-black flex-1 min-h-0">
           <div className="relative w-full h-full overflow-hidden bg-black">
             {status === "captured" && capture ? (
               <div className="absolute inset-0 flex items-center justify-center bg-black">
@@ -549,7 +549,7 @@ export function OdometerCamera({ onClose, onVerifyPhoto, onUsePhoto, onRetake }:
         </div>
 
         {/* Footer controls */}
-        <div className="space-y-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shrink-0">
+        <div className="space-y-3 p-4 pb-[calc(16px+env(safe-area-inset-bottom))] shrink-0">
           <p className="text-center text-xs font-medium text-white/80">
             {status === "captured" ? (
               verifyStatus === "verifying" ? (
