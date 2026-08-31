@@ -92,6 +92,11 @@
     "welcome": "مرحبًا بك يا {name}",
     "subtitle": "تطبيق المندوب",
     "tasks": "المهام",
+    "oilStatus": {
+      "default": "حالة الزيت",
+      "due_soon": "اقترب موعد تغيير الزيت",
+      "due": "حان موعد تغيير الزيت"
+    },
     "notifications": "الإشعارات",
     "account": "الحساب",
     "nav": {
@@ -277,7 +282,34 @@
     },
     "emptyMeetingManagers": "لا يوجد مسؤول متاح للمقابلة حاليًا. تواصل مع الإدارة.",
     "meetingWith": "المقابلة مع",
-    "managerNotSpecified": "غير محدد"
+    "managerNotSpecified": "غير محدد",
+    "oilStatus": {
+      "title": "حالة زيت المركبة",
+      "lastOilChange": "آخر تغيير زيت",
+      "interval": "مسافة الزيت",
+      "nextOilChange": "التغيير القادم",
+      "currentOdometer": "العداد الحالي",
+      "drivenSinceOilChange": "المسافة منذ التغيير",
+      "remaining": "المتبقي",
+      "remainingShort": "المتبقي",
+      "remainingValue": "{value} كم متبقي",
+      "overdue": "تجاوز موعد التغيير بـ {value} كم",
+      "overdueShort": "تجاوز بـ {value} كم",
+      "unit": "كم",
+      "preview": "معاينة حسب قراءة العداد المدخلة",
+      "notAvailable": "غير متاح",
+      "statuses": {
+        "ok": "الزيت بحالة جيدة",
+        "due_soon": "اقترب موعد تغيير الزيت",
+        "due": "حان موعد تغيير الزيت",
+        "incomplete": "بيانات الزيت غير مكتملة",
+        "no_vehicle": "لا توجد مركبة مرتبطة"
+      },
+      "request": {
+        "pending": "يوجد طلب تغيير زيت قيد المراجعة.",
+        "approved": "تمت الموافقة على طلب تغيير الزيت بانتظار الإكمال."
+      }
+    }
   },
   "Salary": {
     "title": "راتبي",
@@ -525,6 +557,20 @@
     "successMessage": "تم إرسال طلب تغيير الشيفت بنجاح.",
     "pendingRequestTitle": "يوجد طلب معلق بالفعل",
     "pendingRequestDesc": "طلب تغيير إلى شيفت \"{shift}\" للأسبوع الذي يبدأ في {date} قيد المراجعة حالياً.",
+    "requestStatusUpdated": "تم تحديث حالة طلب تغيير الشيفت",
+    "latestRequestTitle": "آخر طلب تغيير شيفت",
+    "requestHistoryTitle": "سجل طلبات تغيير الشيفت",
+    "requestedShiftLabel": "الشيفت المطلوب",
+    "requestedWeekLabel": "الأسبوع المطلوب",
+    "submittedAtLabel": "تاريخ الطلب",
+    "reviewedAtLabel": "تاريخ المراجعة",
+    "reviewNoteLabel": "ملاحظة الإدارة",
+    "unknownShift": "الشيفت غير متاح",
+    "requestStatuses": {
+      "pending": "قيد المراجعة",
+      "approved": "مقبول",
+      "rejected": "مرفوض"
+    },
     "errors": {
       "validationError": "يرجى التحقق من البيانات المطلوبة.",
       "submitFailed": "فشل إرسال الطلب، يرجى المحاولة لاحقاً."

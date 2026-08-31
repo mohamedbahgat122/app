@@ -89,6 +89,11 @@
     "welcome": "স্বাগতম, {name}",
     "subtitle": "ড্রাইভার অ্যাপ",
     "tasks": "টাস্ক",
+    "oilStatus": {
+      "default": "Oil status",
+      "due_soon": "Oil change is approaching",
+      "due": "Oil change is due"
+    },
     "notifications": "নোটিফিকেশন",
     "account": "অ্যাকাউন্ট",
     "nav": {
@@ -267,7 +272,34 @@
     },
     "emptyMeetingManagers": "মিটিংয়ের জন্য বর্তমানে কোনো ব্যবস্থাপনা ব্যবহারকারী উপলব্ধ নেই। ব্যবস্থাপনার সঙ্গে যোগাযোগ করুন।",
     "meetingWith": "কার সঙ্গে মিটিং",
-    "managerNotSpecified": "নির্ধারিত নয়"
+    "managerNotSpecified": "নির্ধারিত নয়",
+    "oilStatus": {
+      "title": "Vehicle oil status",
+      "lastOilChange": "Last oil change",
+      "interval": "Oil interval",
+      "nextOilChange": "Next oil change",
+      "currentOdometer": "Current odometer",
+      "drivenSinceOilChange": "Distance since change",
+      "remaining": "Remaining",
+      "remainingShort": "Remaining",
+      "remainingValue": "{value} km remaining",
+      "overdue": "Oil change overdue by {value} km",
+      "overdueShort": "{value} km overdue",
+      "unit": "km",
+      "preview": "Preview from typed odometer",
+      "notAvailable": "Not available",
+      "statuses": {
+        "ok": "Oil is in good condition",
+        "due_soon": "Oil change is approaching",
+        "due": "Oil change is due",
+        "incomplete": "Oil data is incomplete",
+        "no_vehicle": "No linked vehicle"
+      },
+      "request": {
+        "pending": "There is an oil change request pending review.",
+        "approved": "Your oil change request is approved and waiting for completion."
+      }
+    }
   },
   "Salary": {
     "title": "আমার বেতন",
@@ -478,6 +510,20 @@
     "errors": {
       "validationError": "প্রয়োজনীয় তথ্য চেক করুন।",
       "submitFailed": "অনুরোধ জমা দিতে ব্যর্থ হয়েছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন।"
+    },
+    "requestStatusUpdated": "Shift change request status updated",
+    "latestRequestTitle": "Latest shift change request",
+    "requestHistoryTitle": "Shift change request history",
+    "requestedShiftLabel": "Requested shift",
+    "requestedWeekLabel": "Requested week",
+    "submittedAtLabel": "Submitted at",
+    "reviewedAtLabel": "Reviewed at",
+    "reviewNoteLabel": "Management note",
+    "unknownShift": "Shift unavailable",
+    "requestStatuses": {
+      "pending": "Pending review",
+      "approved": "Approved",
+      "rejected": "Rejected"
     }
   },
   "ChangePassword": {

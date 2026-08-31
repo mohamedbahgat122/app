@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -10,10 +10,58 @@ type RealtimeRefreshProps = {
     | "driver_app_requests"
     | "app_notifications"
     | "driver_warnings"
+    | "driver_shift_change_requests"
     | "organization_shift_assignments";
   filter: string;
   toast: string;
 };
+
+type RealtimeRefreshSubscriber = {
+  refresh: () => void;
+  showToast: () => void;
+};
+
+const refreshDebounceMs = 350;
+const realtimeRefreshSubscribers = new Map<string, RealtimeRefreshSubscriber>();
+const pendingSubscriberIds = new Set<string>();
+let pendingRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleRealtimeRefresh(subscriberId: string) {
+  pendingSubscriberIds.add(subscriberId);
+
+  if (pendingRefreshTimer) return;
+
+  pendingRefreshTimer = setTimeout(() => {
+    pendingRefreshTimer = null;
+    flushRealtimeRefresh();
+  }, refreshDebounceMs);
+}
+
+function flushRealtimeRefresh() {
+  const subscribers = Array.from(pendingSubscriberIds)
+    .map((subscriberId) => realtimeRefreshSubscribers.get(subscriberId))
+    .filter((subscriber): subscriber is RealtimeRefreshSubscriber => Boolean(subscriber));
+
+  pendingSubscriberIds.clear();
+  if (subscribers.length === 0) return;
+
+  subscribers[0].refresh();
+
+  for (const subscriber of subscribers) {
+    subscriber.showToast();
+  }
+}
+
+function removeRealtimeRefreshSubscriber(subscriberId: string) {
+  realtimeRefreshSubscribers.delete(subscriberId);
+  pendingSubscriberIds.delete(subscriberId);
+
+  if (realtimeRefreshSubscribers.size === 0 && pendingRefreshTimer) {
+    clearTimeout(pendingRefreshTimer);
+    pendingRefreshTimer = null;
+    pendingSubscriberIds.clear();
+  }
+}
 
 export function RealtimeRefresh({
   channelName,
@@ -22,8 +70,25 @@ export function RealtimeRefresh({
   toast,
 }: RealtimeRefreshProps) {
   const router = useRouter();
+  const subscriberId = useId();
   const [visible, setVisible] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    realtimeRefreshSubscribers.set(subscriberId, {
+      refresh: () => router.refresh(),
+      showToast: () => {
+        setVisible(true);
+
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => setVisible(false), 2800);
+      },
+    });
+
+    return () => {
+      removeRealtimeRefreshSubscriber(subscriberId);
+    };
+  }, [router, subscriberId]);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -38,11 +103,7 @@ export function RealtimeRefresh({
         filter,
       },
       () => {
-        router.refresh();
-        setVisible(true);
-
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(() => setVisible(false), 2800);
+        scheduleRealtimeRefresh(subscriberId);
       },
     );
 
@@ -52,7 +113,7 @@ export function RealtimeRefresh({
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       supabase.removeChannel(channel);
     };
-  }, [channelName, filter, router, table]);
+  }, [channelName, filter, subscriberId, table]);
 
   if (!visible) return null;
 

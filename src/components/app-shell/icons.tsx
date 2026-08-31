@@ -83,3 +83,13 @@ export function TasksIcon({ className = "size-5" }: IconProps) {
     </svg>
   );
 }
+
+export function OilWarningIcon({ className = "size-5" }: IconProps) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="none">
+      <path d="M14 3.5c1.2 2 3.5 4.9 4.6 7.2.5 1.1.8 2.2.8 3.3a7.4 7.4 0 0 1-14.8 0c0-1.1.3-2.2.8-3.3C6.5 8.4 8.8 5.5 10 3.5a2.3 2.3 0 0 1 4 0Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <path d="M12 10.2v4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+      <path d="M12 17.4h.01" stroke="currentColor" strokeLinecap="round" strokeWidth="2.4" />
+    </svg>
+  );
+}

@@ -1,8 +1,9 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { RequestForm } from "@/components/requests/request-form";
+import { OilChangeRequestPanel } from "@/components/requests/oil-change-request-panel";
 import { isLocale } from "@/config/locales";
 import { loadDriverSession } from "@/lib/app/driver-app-data";
+import { loadDriverOilMaintenanceStatus } from "@/lib/app/oil-maintenance-status";
 
 type RouteProps = { params: Promise<{ locale: string }> };
 
@@ -12,6 +13,7 @@ export default async function NewOilChangeRequestPage({ params }: RouteProps) {
  setRequestLocale(locale);
  const app = await loadDriverSession(locale);
  if (app.status === "application_error") return null;
+ const oilStatus = await loadDriverOilMaintenanceStatus(app.session);
  const t = await getTranslations({ locale, namespace: "Requests" });
 
  return (
@@ -24,7 +26,10 @@ export default async function NewOilChangeRequestPage({ params }: RouteProps) {
      </Link>
      <h1 className="text-xl font-bold text-navy">{t("choices.oil-change")}</h1>
     </div>
-    <RequestForm type="oil-change" vehiclePlate={app.session.driver.vehiclePlate} />
+    <OilChangeRequestPanel
+     oilStatus={oilStatus}
+     vehiclePlate={app.session.driver.vehiclePlate}
+    />
    </main>
  );
 }

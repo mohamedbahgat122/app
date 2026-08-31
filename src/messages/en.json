@@ -92,6 +92,11 @@
     "welcome": "Welcome, {name}",
     "subtitle": "Driver app",
     "tasks": "Tasks",
+    "oilStatus": {
+      "default": "Oil status",
+      "due_soon": "Oil change is approaching",
+      "due": "Oil change is due"
+    },
     "notifications": "Notifications",
     "account": "Account",
     "nav": {
@@ -276,7 +281,34 @@
     },
     "emptyMeetingManagers": "No management user is currently available for meetings. Contact management.",
     "meetingWith": "Meeting with",
-    "managerNotSpecified": "Not specified"
+    "managerNotSpecified": "Not specified",
+    "oilStatus": {
+      "title": "Vehicle oil status",
+      "lastOilChange": "Last oil change",
+      "interval": "Oil interval",
+      "nextOilChange": "Next oil change",
+      "currentOdometer": "Current odometer",
+      "drivenSinceOilChange": "Distance since change",
+      "remaining": "Remaining",
+      "remainingShort": "Remaining",
+      "remainingValue": "{value} km remaining",
+      "overdue": "Oil change overdue by {value} km",
+      "overdueShort": "{value} km overdue",
+      "unit": "km",
+      "preview": "Preview from typed odometer",
+      "notAvailable": "Not available",
+      "statuses": {
+        "ok": "Oil is in good condition",
+        "due_soon": "Oil change is approaching",
+        "due": "Oil change is due",
+        "incomplete": "Oil data is incomplete",
+        "no_vehicle": "No linked vehicle"
+      },
+      "request": {
+        "pending": "There is an oil change request pending review.",
+        "approved": "Your oil change request is approved and waiting for completion."
+      }
+    }
   },
   "Salary": {
     "title": "My Salary",
@@ -524,6 +556,20 @@
     "successMessage": "Shift change request submitted successfully.",
     "pendingRequestTitle": "A pending request already exists",
     "pendingRequestDesc": "A request to change to \"{shift}\" shift for the week starting {date} is currently under review.",
+    "requestStatusUpdated": "Shift change request status updated",
+    "latestRequestTitle": "Latest shift change request",
+    "requestHistoryTitle": "Shift change request history",
+    "requestedShiftLabel": "Requested shift",
+    "requestedWeekLabel": "Requested week",
+    "submittedAtLabel": "Submitted at",
+    "reviewedAtLabel": "Reviewed at",
+    "reviewNoteLabel": "Management note",
+    "unknownShift": "Shift unavailable",
+    "requestStatuses": {
+      "pending": "Pending review",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
     "errors": {
       "validationError": "Please check the required fields.",
       "submitFailed": "Failed to submit the request. Please try again later."

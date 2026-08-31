@@ -7,6 +7,7 @@ import {
  loadDriverSession,
  loadAvailableShiftTemplates,
  loadPendingShiftChangeRequest,
+ loadRecentShiftChangeRequests,
 } from "@/lib/app/driver-app-data";
 import { ShiftChangeRequestForm } from "@/components/shifts/shift-change-request-form";
 
@@ -24,9 +25,10 @@ export default async function ShiftsPage({ params }: RouteProps) {
   app.supabase,
  );
  const organizationId = app.session.organization?.id;
- const [availableShifts, pendingRequest] = await Promise.all([
+ const [availableShifts, pendingRequest, recentRequests] = await Promise.all([
   organizationId ? loadAvailableShiftTemplates(organizationId, assignedShift?.id) : Promise.resolve([]),
   loadPendingShiftChangeRequest(app.session.driver.id),
+  loadRecentShiftChangeRequests(app.session.driver.id),
  ]);
 
  if (!assignedShift) {
@@ -51,6 +53,12 @@ export default async function ShiftsPage({ params }: RouteProps) {
     table="organization_shift_assignments"
     filter={`driver_id=eq.${app.session.driver.id}`}
     toast={t("updated")}
+   />
+   <RealtimeRefresh
+    channelName={`driver-shift-change-requests-${app.session.driver.id}`}
+    table="driver_shift_change_requests"
+    filter={`driver_id=eq.${app.session.driver.id}`}
+    toast={t("requestStatusUpdated")}
    />
    <h1 className="text-[1.45rem] font-bold text-navy">{t("title")}</h1>
    <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
@@ -104,9 +112,10 @@ export default async function ShiftsPage({ params }: RouteProps) {
    ) : null}
 
    <ShiftChangeRequestForm
-    currentShiftId={assignedShift.id}
-    availableShifts={availableShifts}
-    pendingRequest={pendingRequest}
+   currentShiftId={assignedShift.id}
+   availableShifts={availableShifts}
+   pendingRequest={pendingRequest}
+   recentRequests={recentRequests}
    />
   </div>
  );

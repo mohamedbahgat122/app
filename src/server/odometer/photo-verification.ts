@@ -170,33 +170,33 @@ export async function verifyOdometerPhoto({
   try {
     if (expectedDigits) {
       logOcrStage("manual_photo_gate_started");
-      // @ts-ignore
-      const sharp = eval("require")("sharp");
-      let imgW = imageSize.width || 0;
-      let imgH = imageSize.height || 0;
-      
-      try {
-        const meta = await sharp(image, { failOn: "none" }).metadata();
-        imgW = meta.width || imgW;
-        imgH = meta.height || imgH;
-        
-        if (imgW < 100 || imgH < 100) {
-          logOcrStage("image_unreadable", { reason: "dimensions_too_small" });
-          return rejected("image_unreadable" as any, [], previousReading);
-        }
-        
-        const grayStats = await sharp(image, { failOn: "none" }).grayscale().stats();
-        const mean = grayStats.channels[0].mean;
-        const stdev = grayStats.channels[0].stdev;
-        
-        if (stdev < 2 || mean < 5) {
-          logOcrStage("image_unreadable", { mean, stdev, reason: "blank_or_black" });
-          return rejected("image_unreadable" as any, [], previousReading);
-        }
-      } catch (err) {
-        logOcrStage("image_stats_error", { error: String(err) });
+      // Basic Buffer validation without native modules
+      if (!image || !Buffer.isBuffer(image) || image.byteLength < 5120 || image.byteLength > 15 * 1024 * 1024) {
+        logOcrStage("image_unreadable", { reason: "invalid_buffer_size" });
         return rejected("image_unreadable" as any, [], previousReading);
       }
+      
+      // Simple Magic Bytes check for JPEG / PNG / WEBP
+      const header = image.subarray(0, 12);
+      const isJPEG = header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff;
+      const isPNG = header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4e && header[3] === 0x47;
+      const isWEBP = header[0] === 0x52 && header[1] === 0x49 && header[2] === 0x46 && header[3] === 0x46 &&
+                     header[8] === 0x57 && header[9] === 0x45 && header[10] === 0x42 && header[11] === 0x50;
+                     
+      if (!isJPEG && !isPNG && !isWEBP) {
+        logOcrStage("image_unreadable", { reason: "invalid_magic_bytes", header: header.toString("hex") });
+        return rejected("image_unreadable" as any, [], previousReading);
+      }
+
+      let imageType = "unknown";
+      if (isJPEG) imageType = "jpeg";
+      if (isPNG) imageType = "png";
+      if (isWEBP) imageType = "webp";
+
+      console.info("[odometer-photo] manual_evidence_validated", {
+        byteLength: image.byteLength,
+        imageType
+      });
       
       const readingVal = Number(expectedDigits);
       const mappedCands: OdometerVerificationCandidate[] = [{

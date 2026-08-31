@@ -524,6 +524,43 @@ export async function loadPendingShiftChangeRequest(driverId: string) {
   } | null;
 }
 
+export type RecentShiftChangeRequest = {
+  id: string;
+  requested_week_start_date: string;
+  status: "pending" | "approved" | "rejected";
+  driver_note: string | null;
+  review_note: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  requested_shift: { name: string } | null;
+};
+
+export async function loadRecentShiftChangeRequests(driverId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("driver_shift_change_requests")
+    .select(`
+      id,
+      requested_week_start_date,
+      status,
+      driver_note,
+      review_note,
+      reviewed_at,
+      created_at,
+      requested_shift:organization_shift_templates!driver_shift_change_requests_requested_shift_id_fkey(name)
+    `)
+    .eq("driver_id", driverId)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (error) {
+    console.error("loadRecentShiftChangeRequests error", error);
+    return [];
+  }
+
+  return (data ?? []) as RecentShiftChangeRequest[];
+}
+
 const avatarUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
 export async function createDriverAvatarUrl(path: string | null) {

@@ -422,8 +422,8 @@ export function OdometerCamera({ onClose, onUsePhoto, onRetake }: OdometerCamera
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex min-h-dvh items-center justify-center bg-navy/95 p-4 text-white">
-      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-[430px] flex-col overflow-hidden rounded-[1.25rem] bg-navy shadow-2xl">
+    <div className="fixed inset-0 z-50 flex h-dvh items-stretch justify-center bg-navy/95 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] text-white">
+      <div className="flex min-h-0 w-full max-w-[430px] flex-col overflow-hidden rounded-[1.25rem] bg-navy shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-white/10 p-3.5">
           <p className="text-sm font-bold text-white">{t("title")}</p>
@@ -519,7 +519,7 @@ export function OdometerCamera({ onClose, onUsePhoto, onRetake }: OdometerCamera
         </div>
 
         {/* Footer controls */}
-        <div className="space-y-3 p-4 pb-[calc(16px+env(safe-area-inset-bottom))] shrink-0">
+        <div className="space-y-3 p-4 shrink-0">
           <p className="text-center text-xs font-medium text-white/80">
             {status === "captured" ? (
               "هل العداد واضح في هذه الصورة؟"

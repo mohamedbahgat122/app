@@ -54,11 +54,13 @@ export function RequestForm({
   vehiclePlate,
   vehicleErrorCode,
   meetingManagers = [],
+  onOdometerReadingChange,
 }: {
   type: RequestFormType;
   vehiclePlate: string | null;
   vehicleErrorCode?: MaintenanceVehicleErrorCode | null;
   meetingManagers?: MeetingManagerOption[];
+  onOdometerReadingChange?: (value: string) => void;
 }) {
   const t = useTranslations("Requests");
   const router = useRouter();
@@ -104,7 +106,9 @@ export function RequestForm({
       {type === "meeting" ? (
         <MeetingFields meetingManagers={meetingManagers} />
       ) : null}
-      {type === "oil-change" ? <OilChangeFields /> : null}
+      {type === "oil-change" ? (
+        <OilChangeFields onOdometerReadingChange={onOdometerReadingChange} />
+      ) : null}
       {state.status !== "idle" && state.status !== "success" ? (
         <p className="text-sm font-bold text-red-600">
           {t(`errors.${state.messageKey ?? "submitFailed"}`)}
@@ -237,7 +241,11 @@ function formatMeetingManagerLabel(
   return parts.length > 0 ? parts.join(" — ") : fallback;
 }
 
-function OilChangeFields() {
+function OilChangeFields({
+  onOdometerReadingChange,
+}: {
+  onOdometerReadingChange?: (value: string) => void;
+}) {
   const t = useTranslations("Requests");
 
   return (
@@ -246,6 +254,7 @@ function OilChangeFields() {
         name="odometerReading"
         inputMode="numeric"
         label={t("fields.odometerReading")}
+        onChange={onOdometerReadingChange}
       />
       <Textarea name="note" label={t("fields.note")} />
     </>
@@ -257,12 +266,17 @@ function Input({
   label,
   type = "text",
   inputMode,
+  onChange,
 }: {
   name: string;
   label: string;
   type?: string;
   inputMode?: "numeric";
+  onChange?: (value: string) => void;
 }) {
+  const dateInputClass =
+    type === "date" ? " appearance-none [-webkit-appearance:none]" : "";
+
   return (
     <label className="block space-y-2 text-sm font-semibold text-navy">
       <span>{label}</span>
@@ -270,7 +284,8 @@ function Input({
         name={name}
         type={type}
         inputMode={inputMode}
-        className="min-h-12 w-full rounded-[0.85rem] border border-border bg-primary-soft/60 px-4 text-base text-navy outline-none focus:border-primary focus:bg-white"
+        onChange={(event) => onChange?.(event.currentTarget.value)}
+        className={`min-h-12 w-full min-w-0 max-w-full rounded-[0.85rem] border border-border bg-primary-soft/60 px-4 text-base text-navy outline-none focus:border-primary focus:bg-white${dateInputClass}`}
       />
     </label>
   );
