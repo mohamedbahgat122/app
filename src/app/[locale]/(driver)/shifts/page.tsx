@@ -41,7 +41,7 @@ export default async function ShiftsPage({ params }: RouteProps) {
   ]);
 
   return (
-   <div className="space-y-4">
+    <div className="min-w-0 max-w-full space-y-4">
     <RealtimeRefresh
      subscriptions={[
       {
@@ -88,7 +88,7 @@ export default async function ShiftsPage({ params }: RouteProps) {
 
  if (!assignedShift) {
   return (
-   <div className="space-y-4">
+    <div className="min-w-0 max-w-full space-y-4">
     <RealtimeRefresh
      channelName={`driver-shift-assignment-${driverId}`}
      table="organization_shift_assignments"
@@ -102,7 +102,7 @@ export default async function ShiftsPage({ params }: RouteProps) {
  }
 
  return (
-  <div className="space-y-4">
+   <div className="min-w-0 max-w-full space-y-4">
    <RealtimeRefresh
     channelName={`driver-shift-assignment-${driverId}`}
     table="organization_shift_assignments"
@@ -116,10 +116,10 @@ export default async function ShiftsPage({ params }: RouteProps) {
     toast={t("requestStatusUpdated")}
    />
    <h1 className="text-[1.45rem] font-bold text-navy">{t("title")}</h1>
-   <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-    <div className="flex flex-wrap items-start justify-between gap-3">
-     <div>
-      <h2 className="text-xl font-bold text-navy">
+   <article className="min-w-0 max-w-full rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+     <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0 flex-1">
+        <h2 className="break-words text-xl font-bold text-navy">
        {assignedShift.name}
       </h2>
       <p className="mt-1 text-sm font-bold text-slate-500">
@@ -216,12 +216,12 @@ async function OrderWorkShiftCard({
  const assignment = orderPeriod.assignment;
  if (openShift) {
   return (
-   <article className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-    <div className="flex items-start gap-3">
+    <article className="min-w-0 max-w-full rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+     <div className="flex min-w-0 items-start gap-3">
      <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-white/80 text-emerald-700">
       <ShiftIcon className="size-5" />
      </span>
-     <div className="min-w-0">
+     <div className="min-w-0 flex-1">
       <p className="text-sm font-bold text-emerald-800">{t("status.open")}</p>
     <p className="mt-2 text-sm font-semibold text-emerald-900">
      {t("startTime")}: <span dir="ltr">{formatStartedAt(openShift.started_at, locale)}</span>
@@ -249,9 +249,9 @@ async function OrderWorkShiftCard({
  };
 
  return (
-  <div className="space-y-3">
-  {showCurrentShiftCard ? <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-   <div className="flex items-start gap-3">
+   <div className="min-w-0 max-w-full space-y-3">
+  {showCurrentShiftCard ? <article className="min-w-0 max-w-full rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+   <div className="flex min-w-0 items-start gap-3">
     <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
      <CalendarIcon className="size-5" />
     </span>
@@ -262,7 +262,7 @@ async function OrderWorkShiftCard({
    </div>
    <div className="mt-5">
     <p className="text-xs font-bold text-slate-500">{t("orderShiftTitle")}</p>
-    <p className="mt-1 text-lg font-bold text-navy">{assignment.template_name}</p>
+    <p className="mt-1 break-words text-lg font-bold text-navy">{assignment.template_name}</p>
    </div>
    <div className="mt-4 rounded-2xl bg-slate-50 p-4">
     <div className="flex items-center gap-2 text-slate-500">

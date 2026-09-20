@@ -270,7 +270,7 @@ function MeetingFields({
       <Input name="subject" label={t("fields.subject")} icon={FileTextIcon} />
       <Textarea name="reason" label={t("fields.reason")} icon={FileTextIcon} />
       <Input name="preferredDate" type="date" label={t("fields.preferredDate")} icon={CalendarIcon} />
-      <div className="space-y-2">
+      <div className="min-w-0 max-w-full space-y-2">
         <Input
           name="preferredTime"
           type="time"
@@ -284,9 +284,9 @@ function MeetingFields({
         />
         <div className="flex items-start gap-2 rounded-xl bg-primary-soft/60 px-3 py-2 text-xs font-semibold text-muted">
           <ClockIcon className="mt-0.5 size-4 shrink-0 text-primary" />
-          <span>{t("officeHours")}: {t("officeHoursHelp")}</span>
+          <span className="min-w-0 break-words">{t("officeHours")}: {t("officeHoursHelp")}</span>
         </div>
-        {invalidTime ? <p className="text-sm font-bold text-red-600">{t("errors.invalidMeetingTime")}</p> : null}
+        {invalidTime ? <p className="break-words text-sm font-bold text-red-600">{t("errors.invalidMeetingTime")}</p> : null}
       </div>
     </>
   );
@@ -350,7 +350,7 @@ function Input({
     type === "date" ? " appearance-none [-webkit-appearance:none]" : "";
 
   return (
-    <label className="block space-y-2 text-sm font-semibold text-navy">
+    <label className="block min-w-0 max-w-full space-y-2 text-sm font-semibold text-navy">
       <span className="flex items-center gap-2"><Icon className="size-4 text-primary" />{label}</span>
       <input
         name={name}
@@ -369,11 +369,11 @@ function Input({
 
 function Textarea({ name, label, icon: Icon = FileTextIcon }: { name: string; label: string; icon?: ComponentType<{ className?: string }> }) {
   return (
-    <label className="block space-y-2 text-sm font-semibold text-navy">
+    <label className="block min-w-0 max-w-full space-y-2 text-sm font-semibold text-navy">
       <span className="flex items-center gap-2"><Icon className="size-4 text-primary" />{label}</span>
       <textarea
         name={name}
-        className="min-h-28 w-full rounded-[0.85rem] border border-border bg-primary-soft/60 px-4 py-3 text-base text-navy outline-none focus:border-primary focus:bg-white"
+        className="min-h-28 w-full min-w-0 max-w-full rounded-[0.85rem] border border-border bg-primary-soft/60 px-4 py-3 text-base text-navy outline-none focus:border-primary focus:bg-white"
       />
     </label>
   );
@@ -393,12 +393,12 @@ function Select({
   icon?: ComponentType<{ className?: string }>;
 }) {
   return (
-    <label className="block space-y-2 text-sm font-semibold text-navy">
+    <label className="block min-w-0 max-w-full space-y-2 text-sm font-semibold text-navy">
       <span className="flex items-center gap-2"><Icon className="size-4 text-primary" />{label}</span>
       <select
         name={name}
         required={required}
-        className="min-h-12 w-full rounded-[0.85rem] border border-border bg-primary-soft/60 px-4 text-base text-navy outline-none focus:border-primary focus:bg-white"
+        className="min-h-12 w-full min-w-0 max-w-full rounded-[0.85rem] border border-border bg-primary-soft/60 px-4 text-base text-navy outline-none focus:border-primary focus:bg-white"
       >
         {children}
       </select>

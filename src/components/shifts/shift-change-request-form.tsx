@@ -87,7 +87,7 @@ export function ShiftChangeRequestForm({
    : null;
 
  return (
-  <div className="mt-4 space-y-4">
+  <div className="mt-4 min-w-0 max-w-full space-y-4">
    {latestRequest ? (
     <ShiftRequestCard
      request={latestRequest}
@@ -149,7 +149,7 @@ export function ShiftChangeRequestForm({
      </p>
     </div>
    ) : (
-  <form action={formAction} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm mt-4 space-y-4">
+  <form action={formAction} className="mt-4 min-w-0 max-w-full space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
    <h3 className="text-base font-bold text-navy">
     {t("requestTitle")}
    </h3>
@@ -173,7 +173,7 @@ export function ShiftChangeRequestForm({
      id="requestedShiftId"
      name="requestedShiftId"
      required
-     className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-navy focus:outline-none focus:ring-2 focus:ring-primary/50"
+     className="block min-w-0 max-w-full w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-navy focus:outline-none focus:ring-2 focus:ring-primary/50"
     >
      <option value="">{t("selectShift")}</option>
      {availableShifts
@@ -194,7 +194,7 @@ export function ShiftChangeRequestForm({
      id="driverNote"
      name="driverNote"
      rows={3}
-     className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-navy focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+     className="block min-w-0 max-w-full w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-navy focus:outline-none focus:ring-2 focus:ring-primary/50"
      placeholder={t("notePlaceholder")}
     />
    </div>
@@ -206,7 +206,7 @@ export function ShiftChangeRequestForm({
    )}
 
    {errorMessageKey ? (
-    <p className="text-sm font-bold text-red-600">
+    <p className="break-words text-sm font-bold text-red-600">
      {t(`errors.${errorMessageKey}`)}
     </p>
    ) : null}
@@ -255,16 +255,16 @@ function ShiftRequestCard({
   <article
    className={
     prominent
-     ? "rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
-     : "rounded-2xl border border-slate-200 bg-slate-50 p-4"
+     ? "min-w-0 max-w-full rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+     : "min-w-0 max-w-full rounded-2xl border border-slate-200 bg-slate-50 p-4"
    }
   >
-   <div className="flex flex-wrap items-start justify-between gap-3">
-    <div>
+   <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+    <div className="min-w-0 flex-1">
      {title ? (
       <h3 className="text-base font-bold text-navy">{title}</h3>
      ) : null}
-     <p className={title ? "mt-2 text-sm font-bold text-navy" : "text-sm font-bold text-navy"}>
+     <p className={`${title ? "mt-2" : ""} break-words text-sm font-bold text-navy`}>
       {request.requested_shift?.name ?? t("unknownShift")}
      </p>
     </div>
@@ -299,7 +299,7 @@ function ShiftRequestCard({
    {reviewNote ? (
     <div className="mt-3 rounded-2xl bg-white p-3 text-xs font-semibold leading-6 text-slate-700">
      <p className="font-bold text-navy">{t("reviewNoteLabel")}</p>
-     <p className="mt-1 whitespace-pre-wrap">{reviewNote}</p>
+     <p className="mt-1 break-words whitespace-pre-wrap">{reviewNote}</p>
     </div>
    ) : null}
   </article>
