@@ -69,7 +69,7 @@ export function OrderShiftChangeRequestForm({
 
   if (!currentAssignment || !requestWindow.success) {
     return (
-      <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+    <section className="min-w-0 max-w-full rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
         <div className="flex items-center gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white/80 text-amber-700">
             <ClockIcon className="size-4" />
@@ -113,8 +113,8 @@ export function OrderShiftChangeRequestForm({
       : null;
 
   return (
-    <section className="space-y-3" dir={locale === "ar" || locale === "ur" ? "rtl" : "ltr"}>
-      <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="min-w-0 max-w-full space-y-3" dir={locale === "ar" || locale === "ur" ? "rtl" : "ltr"}>
+      <article className="min-w-0 max-w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <SendIcon className="size-4" />
@@ -126,7 +126,7 @@ export function OrderShiftChangeRequestForm({
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
           {t("orderRequest.description")}
         </p>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <div className="mt-4 grid min-w-0 max-w-full gap-2 sm:grid-cols-2">
           <Info icon={<ShiftIcon className="size-4" />} label={t("orderRequest.currentShift")} value={currentAssignment.template_name} />
           <Info
             icon={<CalendarIcon className="size-4" />}
@@ -180,20 +180,20 @@ export function OrderShiftChangeRequestForm({
           </p>
         </article>
       ) : (
-        <form action={formAction} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <form action={formAction} className="min-w-0 max-w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <h3 className="text-base font-bold text-navy">
             {t("orderRequest.formTitle")}
           </h3>
           <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
             {t("orderRequest.allowedDays", { days: allowedDays })}
           </p>
-          <div className="mt-4">
-            <div className="mb-2 flex items-center gap-2 text-slate-500">
+          <div className="mt-4 min-w-0 max-w-full">
+            <div className="mb-2 flex min-w-0 items-center gap-2 text-slate-500">
               <CalendarIcon className="size-4" />
               <p className="text-xs font-bold">{t("orderRequest.requestedShift")}</p>
             </div>
             <input type="hidden" name="requestedOrderPeriodTemplateId" value={selectedTemplateId} />
-            <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={t("orderRequest.requestedShift")}>
+            <div className="grid min-w-0 max-w-full gap-2 sm:grid-cols-2" role="radiogroup" aria-label={t("orderRequest.requestedShift")}>
               {requestWindow.templates.map((template) => {
                 const selected = selectedTemplateId === template.id;
                 return (
@@ -203,18 +203,18 @@ export function OrderShiftChangeRequestForm({
                     role="radio"
                     aria-checked={selected}
                     onClick={() => setSelectedTemplateId(template.id)}
-                    className={`min-h-20 rounded-xl border p-3 text-start transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+                    className={`block min-h-20 min-w-0 max-w-full w-full rounded-xl border p-3 text-start transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
                       selected
                         ? "border-primary bg-primary/10 text-primary shadow-sm"
                         : "border-slate-200 bg-slate-50 text-navy hover:border-primary/40 hover:bg-white"
                     }`}
                   >
-                    <span className="flex items-start justify-between gap-2">
-                      <span className="flex min-w-0 items-start gap-2">
+                    <span className="flex min-w-0 items-start justify-between gap-2">
+                      <span className="flex min-w-0 flex-1 items-start gap-2">
                         <ClockIcon className="mt-0.5 size-4 shrink-0" />
                         <span className="min-w-0">
-                          <span className="block truncate text-sm font-bold">{template.name}</span>
-                          <span className="mt-1 block text-xs font-semibold" dir="ltr">
+                          <span className="block break-words whitespace-normal text-sm font-bold">{template.name}</span>
+                          <span className="mt-1 block whitespace-nowrap text-xs font-semibold" dir="ltr">
                             {template.start_time.slice(0, 5)} - {template.end_time.slice(0, 5)}
                           </span>
                         </span>
@@ -227,7 +227,7 @@ export function OrderShiftChangeRequestForm({
             </div>
           </div>
           <div className="mt-4">
-            <label htmlFor="orderShiftChangeReason" className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-500">
+            <label htmlFor="orderShiftChangeReason" className="mb-2 flex min-w-0 items-center gap-2 text-xs font-bold text-slate-500">
               <FileTextIcon className="size-4" />
               {t("orderRequest.reasonLabel")}
             </label>
@@ -239,7 +239,7 @@ export function OrderShiftChangeRequestForm({
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               placeholder={t("orderRequest.reasonPlaceholder")}
-              className="w-full resize-none rounded-xl border border-slate-200 px-3 py-3 text-sm font-semibold text-navy outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/10"
+              className="box-border block min-w-0 max-w-full w-full resize-none rounded-xl border border-slate-200 px-3 py-3 text-sm font-semibold text-navy outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/10"
             />
             <p className="mt-1 text-end text-[11px] font-semibold text-slate-400">{reason.length}/2000</p>
           </div>
@@ -256,7 +256,7 @@ export function OrderShiftChangeRequestForm({
           <button
             type="submit"
             disabled={isPending || !canSubmit || !selectedTemplateId}
-            className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-3 flex min-h-12 min-w-0 max-w-full w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending ? <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" /> : <SendIcon className="size-4" />}
             {isPending ? t("orderRequest.sending") : t("orderRequest.submit")}
@@ -265,7 +265,7 @@ export function OrderShiftChangeRequestForm({
       )}
 
       {requests.length > 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="min-w-0 max-w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <ListIcon className="size-4" />
@@ -299,12 +299,12 @@ export function OrderShiftChangeRequestForm({
 
 function Info({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-3">
+    <div className="min-w-0 max-w-full rounded-2xl bg-slate-50 p-3">
       <div className="flex items-center gap-2 text-slate-500">
         {icon}
         <p className="text-xs font-bold">{label}</p>
       </div>
-      <p className="mt-2 text-sm font-bold text-navy">{value}</p>
+      <p className="mt-2 break-words text-sm font-bold text-navy">{value}</p>
     </div>
   );
 }

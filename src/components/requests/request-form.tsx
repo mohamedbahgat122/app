@@ -346,12 +346,16 @@ function Input({
   value?: string;
   ariaInvalid?: boolean;
 }) {
-  const dateInputClass =
-    type === "date" ? " appearance-none [-webkit-appearance:none]" : "";
+  const inputAppearanceClass =
+    type === "date"
+      ? " appearance-none [-webkit-appearance:none]"
+      : type === "time"
+        ? " appearance-none"
+        : "";
 
   return (
     <label className="block min-w-0 max-w-full space-y-2 text-sm font-semibold text-navy">
-      <span className="flex items-center gap-2"><Icon className="size-4 text-primary" />{label}</span>
+      <span className="flex min-w-0 items-center gap-2 break-words"><Icon className="size-4 shrink-0 text-primary" />{label}</span>
       <input
         name={name}
         type={type}
@@ -361,7 +365,8 @@ function Input({
         value={value}
         aria-invalid={ariaInvalid}
         onChange={(event) => onChange?.(event.currentTarget.value)}
-        className={`min-h-12 w-full min-w-0 max-w-full rounded-[0.85rem] border border-border bg-primary-soft/60 px-4 text-base text-navy outline-none focus:border-primary focus:bg-white${dateInputClass}`}
+        dir={type === "time" ? "ltr" : undefined}
+        className={`box-border block min-h-12 w-full min-w-0 max-w-full rounded-[0.85rem] border border-border bg-primary-soft/60 px-4 text-base text-navy outline-none focus:border-primary focus:bg-white${inputAppearanceClass}`}
       />
     </label>
   );
