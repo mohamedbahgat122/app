@@ -1,19 +1,36 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
+import type { RealtimePostgresChangesPayload } from "@supabase/realtime-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-type RealtimeRefreshProps = {
+type RealtimeRefreshRow = Record<string, unknown>;
+type RealtimeRefreshPayload =
+  RealtimePostgresChangesPayload<RealtimeRefreshRow>;
+
+type RealtimeRefreshTable =
+  | "driver_app_requests"
+  | "app_notifications"
+  | "driver_warnings"
+  | "driver_shift_change_requests"
+  | "organization_shift_assignments"
+  | "organization_order_period_assignments"
+  | "organization_order_period_templates"
+  | "driver_order_shift_change_requests";
+
+type RealtimeRefreshSubscription = {
   channelName: string;
-  table:
-    | "driver_app_requests"
-    | "app_notifications"
-    | "driver_warnings"
-    | "driver_shift_change_requests"
-    | "organization_shift_assignments";
+  table: RealtimeRefreshTable;
   filter: string;
+};
+
+type RealtimeRefreshProps = {
   toast: string;
+  channelName?: string;
+  table?: RealtimeRefreshTable;
+  filter?: string;
+  subscriptions?: RealtimeRefreshSubscription[];
 };
 
 type RealtimeRefreshSubscriber = {
@@ -21,13 +38,48 @@ type RealtimeRefreshSubscriber = {
   showToast: () => void;
 };
 
-const refreshDebounceMs = 350;
-const realtimeRefreshSubscribers = new Map<string, RealtimeRefreshSubscriber>();
-const pendingSubscriberIds = new Set<string>();
-let pendingRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+type RealtimeSuppressionScope = {
+  table: RealtimeRefreshTable;
+  filter: string;
+  eventType: RealtimeRefreshPayload["eventType"];
+};
 
-function scheduleRealtimeRefresh(subscriberId: string) {
-  pendingSubscriberIds.add(subscriberId);
+const refreshDebounceMs = 350;
+const resumeRefreshDebounceMs = 900;
+const localEchoSuppressionMs = 1500;
+const realtimeRefreshSubscribers = new Map<string, RealtimeRefreshSubscriber>();
+const pendingSubscriberIds = new Map<string, boolean>();
+const suppressedRealtimeScopes = new Map<string, number>();
+let pendingRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingResumeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+let resumeListenerUsers = 0;
+
+function createRealtimeScopeKey({ table, filter, eventType }: RealtimeSuppressionScope) {
+  return `${table}:${filter}:${eventType}`;
+}
+
+export function suppressNextRealtimeRefresh(scope: RealtimeSuppressionScope) {
+  suppressedRealtimeScopes.set(
+    createRealtimeScopeKey(scope),
+    Date.now() + localEchoSuppressionMs,
+  );
+}
+
+function shouldSuppressNextRealtimeRefresh(scope: RealtimeSuppressionScope) {
+  const scopeKey = createRealtimeScopeKey(scope);
+  const expiresAt = suppressedRealtimeScopes.get(scopeKey);
+
+  if (!expiresAt) return false;
+
+  suppressedRealtimeScopes.delete(scopeKey);
+  return expiresAt >= Date.now();
+}
+
+function scheduleRealtimeRefresh(subscriberId: string, showToast = true) {
+  pendingSubscriberIds.set(
+    subscriberId,
+    (pendingSubscriberIds.get(subscriberId) ?? false) || showToast,
+  );
 
   if (pendingRefreshTimer) return;
 
@@ -39,17 +91,37 @@ function scheduleRealtimeRefresh(subscriberId: string) {
 
 function flushRealtimeRefresh() {
   const subscribers = Array.from(pendingSubscriberIds)
-    .map((subscriberId) => realtimeRefreshSubscribers.get(subscriberId))
-    .filter((subscriber): subscriber is RealtimeRefreshSubscriber => Boolean(subscriber));
+    .map(([subscriberId, showToast]) => ({
+      subscriber: realtimeRefreshSubscribers.get(subscriberId),
+      showToast,
+    }))
+    .filter(
+      (entry): entry is { subscriber: RealtimeRefreshSubscriber; showToast: boolean } =>
+        Boolean(entry.subscriber),
+    );
 
   pendingSubscriberIds.clear();
   if (subscribers.length === 0) return;
 
-  subscribers[0].refresh();
+  subscribers[0].subscriber.refresh();
 
-  for (const subscriber of subscribers) {
-    subscriber.showToast();
+  for (const { subscriber, showToast } of subscribers) {
+    if (showToast) {
+      subscriber.showToast();
+    }
   }
+}
+
+function scheduleResumeRefresh() {
+  if (pendingResumeRefreshTimer) return;
+
+  pendingResumeRefreshTimer = setTimeout(() => {
+    pendingResumeRefreshTimer = null;
+    const subscriberId = realtimeRefreshSubscribers.keys().next().value;
+    if (typeof subscriberId === "string") {
+      scheduleRealtimeRefresh(subscriberId, false);
+    }
+  }, resumeRefreshDebounceMs);
 }
 
 function removeRealtimeRefreshSubscriber(subscriberId: string) {
@@ -61,6 +133,39 @@ function removeRealtimeRefreshSubscriber(subscriberId: string) {
     pendingRefreshTimer = null;
     pendingSubscriberIds.clear();
   }
+
+  if (realtimeRefreshSubscribers.size === 0 && pendingResumeRefreshTimer) {
+    clearTimeout(pendingResumeRefreshTimer);
+    pendingResumeRefreshTimer = null;
+  }
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === "visible") {
+    scheduleResumeRefresh();
+  }
+}
+
+function handleResume() {
+  scheduleResumeRefresh();
+}
+
+function addResumeListeners() {
+  if (resumeListenerUsers === 0) {
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleResume);
+    window.addEventListener("online", handleResume);
+  }
+  resumeListenerUsers += 1;
+}
+
+function removeResumeListeners() {
+  resumeListenerUsers = Math.max(0, resumeListenerUsers - 1);
+  if (resumeListenerUsers > 0) return;
+
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
+  window.removeEventListener("focus", handleResume);
+  window.removeEventListener("online", handleResume);
 }
 
 export function RealtimeRefresh({
@@ -68,11 +173,16 @@ export function RealtimeRefresh({
   table,
   filter,
   toast,
+  subscriptions,
 }: RealtimeRefreshProps) {
   const router = useRouter();
   const subscriberId = useId();
   const [visible, setVisible] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const subscriptionList = useMemo(
+    () => subscriptions ?? (channelName && table && filter ? [{ channelName, table, filter }] : []),
+    [channelName, filter, subscriptions, table],
+  );
 
   useEffect(() => {
     realtimeRefreshSubscribers.set(subscriberId, {
@@ -92,28 +202,45 @@ export function RealtimeRefresh({
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
-    const channel = supabase.channel(channelName);
+    const channels = subscriptionList.map((subscription) => {
+      const channel = supabase.channel(subscription.channelName);
+      channel.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: subscription.table,
+          filter: subscription.filter,
+        },
+        (payload) => {
+          if (shouldSuppressNextRealtimeRefresh({
+            table: subscription.table,
+            filter: subscription.filter,
+            eventType: payload.eventType,
+          })) {
+            return;
+          }
 
-    channel.on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table,
-        filter,
-      },
-      () => {
-        scheduleRealtimeRefresh(subscriberId);
-      },
-    );
-
-    channel.subscribe();
+          scheduleRealtimeRefresh(subscriberId);
+        },
+      );
+      channel.subscribe();
+      return channel;
+    });
 
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      supabase.removeChannel(channel);
+      for (const channel of channels) supabase.removeChannel(channel);
     };
-  }, [channelName, filter, subscriberId, table]);
+  }, [subscriberId, subscriptionList]);
+
+  useEffect(() => {
+    addResumeListeners();
+
+    return () => {
+      removeResumeListeners();
+    };
+  }, []);
 
   if (!visible) return null;
 

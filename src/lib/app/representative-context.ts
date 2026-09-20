@@ -10,6 +10,7 @@ type ProfileRow = Pick<
   | "id"
   | "full_name"
   | "role"
+  | "job_title"
   | "status"
   | "deleted_at"
   | "home_organization_id"
@@ -24,12 +25,15 @@ type DriverRow = Pick<
   | "profile_photo_path"
   | "iqama_number"
   | "iqama_expiry_date"
+  | "driving_license_number"
+  | "driving_license_expiry_date"
   | "driver_card_number"
   | "driver_card_expiry_date"
   | "keeta_driver_id"
   | "keeta_vehicle_plate_number"
   | "vehicle_id"
   | "vehicle_number"
+  | "settlement_type"
   | "status"
   | "deleted_at"
 >;
@@ -45,8 +49,6 @@ export type RepresentativeVehicle = Pick<
   | "vehicle_category"
   | "vehicle_type"
   | "plate_number"
-  | "assigned_driver_id"
-  | "authorized_driver_id"
   | "operating_card_number"
   | "operating_card_expiry_date"
   | "authorization_expiry_date"
@@ -133,14 +135,14 @@ export async function resolveRepresentativeContext(
     supabase
       .from("profiles")
       .select(
-        "id, full_name, role, status, deleted_at, home_organization_id, must_change_password",
+        "id, full_name, role, job_title, status, deleted_at, home_organization_id, must_change_password",
       )
       .eq("id", authUserId)
       .maybeSingle(),
     supabase
       .from("drivers")
       .select(
-        "id, auth_user_id, organization_id, full_name, profile_photo_path, iqama_number, iqama_expiry_date, driver_card_number, driver_card_expiry_date, keeta_driver_id, keeta_vehicle_plate_number, vehicle_id, vehicle_number, status, deleted_at",
+        "id, auth_user_id, organization_id, full_name, profile_photo_path, iqama_number, iqama_expiry_date, driving_license_number, driving_license_expiry_date, driver_card_number, driver_card_expiry_date, keeta_driver_id, keeta_vehicle_plate_number, vehicle_id, vehicle_number, settlement_type, status, deleted_at",
       )
       .eq("auth_user_id", authUserId)
       .limit(2)
@@ -240,7 +242,7 @@ export async function resolveRepresentativeContext(
   } as const;
 
   const vehicleSelect =
-    "id, assigned_organization_id, organization_id, vehicle_category, vehicle_type, plate_number, assigned_driver_id, authorized_driver_id, operating_card_number, operating_card_expiry_date, authorization_expiry_date, operational_status, technical_status, archived_at";
+    "id, assigned_organization_id, organization_id, vehicle_category, vehicle_type, plate_number, operating_card_number, operating_card_expiry_date, authorization_expiry_date, operational_status, technical_status, archived_at";
   const vehicleQuery = driver.vehicle_id
     ? vehicleSupabase
         .from("fleet_vehicles")
@@ -248,13 +250,7 @@ export async function resolveRepresentativeContext(
         .eq("id", driver.vehicle_id)
         .is("archived_at", null)
         .limit(2)
-    : vehicleSupabase
-        .from("fleet_vehicles")
-        .select(vehicleSelect)
-        .eq("organization_id", driver.organization_id)
-        .is("archived_at", null)
-        .or(`assigned_driver_id.eq.${driver.id},authorized_driver_id.eq.${driver.id}`)
-        .limit(10);
+    : null;
 
   const [
     { data: organizations, error: organizationError },
@@ -265,7 +261,7 @@ export async function resolveRepresentativeContext(
       .select("id, name, code, is_active")
       .eq("id", driver.organization_id)
       .limit(2),
-    vehicleQuery
+    vehicleQuery ?? Promise.resolve({ data: [], error: null })
   ]);
 
   if (organizationError) {
@@ -340,16 +336,7 @@ export async function resolveRepresentativeContext(
     return deniedContext("vehicle_resolution", "vehicle_not_assigned");
   }
 
-  const vehicle = driver.vehicle_id
-    ? vehicles?.[0] ?? null
-    : vehicles
-        ?.sort((a, b) =>
-          a.assigned_driver_id === driver.id && b.assigned_driver_id !== driver.id
-            ? -1
-            : a.assigned_driver_id !== driver.id && b.assigned_driver_id === driver.id
-              ? 1
-              : 0,
-        )[0] ?? null;
+  const vehicle = driver.vehicle_id ? vehicles?.[0] ?? null : null;
 
   if (driver.vehicle_id && !vehicle) {
     return deniedContext("vehicle_resolution", "vehicle_not_assigned");
@@ -366,9 +353,7 @@ export async function resolveRepresentativeContext(
     );
   }
 
-  const plate = driver.vehicle_id
-    ? vehicle?.plate_number ?? null
-    : vehicle?.plate_number ?? driver.keeta_vehicle_plate_number ?? driver.vehicle_number;
+  const plate = vehicle?.plate_number ?? null;
   if (options?.requireVehicle && !plate) {
     return deniedContext("vehicle_resolution", "vehicle_not_assigned");
   }

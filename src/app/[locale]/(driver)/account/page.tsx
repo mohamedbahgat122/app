@@ -2,10 +2,17 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { ReactNode } from "react";
 import { logoutDriverAction } from "@/app/[locale]/actions";
 import { DriverAvatar } from "@/components/app-shell/driver-avatar";
+import {
+  CarIcon,
+  FileTextIcon,
+  OrganizationIcon,
+  ShieldCheckIcon,
+  UserIcon,
+} from "@/components/app-shell/icons";
 import { PageCard } from "@/components/app-shell/page-card";
 import { isLocale } from "@/config/locales";
 import { Link } from "@/i18n/navigation";
-import { loadDriverSession, createDriverAvatarUrl } from "@/lib/app/driver-app-data";
+import { createDriverAvatarUrl, loadDriverSession } from "@/lib/app/driver-app-data";
 
 type RouteProps = { params: Promise<{ locale: string }> };
 
@@ -16,91 +23,113 @@ export default async function AccountPage({ params }: RouteProps) {
   const app = await loadDriverSession(locale);
   if (app.status === "application_error") return null;
   const t = await getTranslations({ locale, namespace: "Account" });
-  const driver = app.session.driver;
-  const vehicle = app.session.vehicle;
-  
+  const { driver, organization, vehicle } = app.session;
   const avatarUrl = await createDriverAvatarUrl(driver.profilePhotoPath);
+  const jobTitle = app.session.jobTitle?.trim() || t("jobTitleFallback");
+  const vehicleCategory = vehicle
+    ? getVehicleCategoryLabel(vehicle.vehicle_category, t)
+    : null;
 
   return (
-    <div className="space-y-4">
-        <PageCard>
-          <div className="flex items-center gap-3">
-            <DriverAvatar
-              imageUrl={avatarUrl}
-              name={driver.fullName}
-            />
-            <div className="min-w-0">
-              <h1 className="truncate text-lg font-bold text-navy">
-                {driver.fullName}
-              </h1>
-              <p className="text-sm font-semibold text-muted" dir="ltr">
-                {driver.driverId}
-              </p>
+    <div className="space-y-3.5">
+      <PageCard>
+        <div className="flex items-center gap-3">
+          <DriverAvatar imageUrl={avatarUrl} name={driver.fullName} />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <h1 className="min-w-0 max-w-full truncate text-lg font-extrabold text-navy">{driver.fullName}</h1>
+              <StatusBadge status={app.session.accountStatus} label={t(`accountStatus.${app.session.accountStatus}`)} />
             </div>
+            <p className="mt-1 truncate text-sm font-semibold text-muted">{jobTitle}</p>
+            <p className="mt-1 truncate text-xs font-bold text-navy" dir="ltr">{driver.driverId || t("notAvailable")}</p>
           </div>
-        </PageCard>
-        <PageCard>
-          <dl className="space-y-3">
-            <Info label={t("organization")} value={app.session.organization?.name ?? t("notAvailable")} />
-            <Info label={t("vehiclePlate")} value={driver.vehiclePlate ?? t("notAvailable")} ltr />
-            <Info label={t("language")} value={t(`languages.${locale}`)} />
-          </dl>
-        </PageCard>
-        <DetailsCard title={t("driverDetails")}>
-          <Info label={t("iqamaNumber")} value={driver.iqamaNumber ?? t("notAvailable")} ltr />
-          <Info label={t("iqamaExpiryDate")} value={formatDateValue(driver.iqamaExpiryDate, t("notAvailable"))} ltr />
-          <Info label={t("driverCardNumber")} value={driver.driverCardNumber ?? t("notAvailable")} ltr />
-          <Info label={t("driverCardExpiryDate")} value={formatDateValue(driver.driverCardExpiryDate, t("notAvailable"))} ltr />
-          <Info label={t("keetaVehiclePlate")} value={driver.keetaVehiclePlateNumber ?? t("notAvailable")} ltr />
-          <Info label={t("actualVehiclePlate")} value={driver.actualVehiclePlateNumber ?? t("notAvailable")} ltr />
-        </DetailsCard>
-        <DetailsCard title={t("vehicleDetails")}>
-          <Info label={t("actualPlate")} value={vehicle?.plate_number ?? t("notAvailable")} ltr />
-          <Info label={t("vehicleType")} value={vehicle?.vehicle_type ?? t("notAvailable")} />
-          <Info label={t("operatingCardNumber")} value={vehicle?.operating_card_number ?? t("notAvailable")} ltr />
-          <Info label={t("operatingCardExpiry")} value={formatDateValue(vehicle?.operating_card_expiry_date, t("notAvailable"))} ltr />
-          <Info label={t("authorizationExpiry")} value={formatDateValue(vehicle?.authorization_expiry_date, t("notAvailable"))} ltr />
-          <Info
-            label={t("operationalStatus")}
-            value={vehicle?.operational_status ? t(`operational.${vehicle.operational_status}`) : t("notAvailable")}
-          />
-        </DetailsCard>
-        <Link
-          href="/change-password"
-          className="flex min-h-12 items-center justify-center rounded-[0.85rem] border border-border bg-white px-4 text-sm font-bold text-navy [touch-action:manipulation]"
-        >
+        </div>
+      </PageCard>
+
+      <SectionCard icon={<OrganizationIcon />} title={t("organizationDetails")}>
+        <InfoRow label={t("organization")} value={organization?.name ?? t("notAvailable")} />
+        {organization?.code ? <InfoRow label={t("organizationCode")} value={organization.code} ltr /> : null}
+      </SectionCard>
+
+      <SectionCard icon={<UserIcon />} title={t("driverDetails")} subtitle={t("driverDetailsSubtitle")}>
+        <InfoRow icon={<FileTextIcon />} label={t("iqamaNumber")} value={driver.iqamaNumber ?? t("notAvailable")} ltr />
+        <InfoRow icon={<FileTextIcon />} label={t("iqamaExpiryDate")} value={formatDateValue(driver.iqamaExpiryDate, t("notAvailable"))} ltr />
+        <InfoRow icon={<FileTextIcon />} label={t("drivingLicenseNumber")} value={driver.drivingLicenseNumber ?? t("notAvailable")} ltr />
+        <InfoRow icon={<FileTextIcon />} label={t("drivingLicenseExpiryDate")} value={formatDateValue(driver.drivingLicenseExpiryDate, t("notAvailable"))} ltr />
+        <InfoRow icon={<FileTextIcon />} label={t("driverCardNumber")} value={driver.driverCardNumber ?? t("notAvailable")} ltr />
+        <InfoRow icon={<FileTextIcon />} label={t("driverCardExpiryDate")} value={formatDateValue(driver.driverCardExpiryDate, t("notAvailable"))} ltr />
+      </SectionCard>
+
+      <SectionCard icon={<CarIcon />} title={t("vehicleDetails")} subtitle={t("vehicleDetailsSubtitle")}>
+        {vehicle ? (
+          <>
+            <InfoRow icon={<CarIcon />} label={t("actualPlate")} value={vehicle.plate_number} ltr />
+            <InfoRow label={t("vehicleType")} value={vehicleCategory ?? vehicle.vehicle_type} />
+            {driver.keetaVehiclePlateNumber ? <InfoRow label={t("keetaVehiclePlate")} value={driver.keetaVehiclePlateNumber} ltr /> : null}
+            <InfoRow icon={<ShieldCheckIcon />} label={t("operatingCardNumber")} value={vehicle.operating_card_number ?? t("notAvailable")} ltr />
+            <InfoRow icon={<ShieldCheckIcon />} label={t("operatingCardExpiry")} value={formatDateValue(vehicle.operating_card_expiry_date, t("notAvailable"))} ltr />
+            <InfoRow icon={<ShieldCheckIcon />} label={t("authorizationExpiry")} value={formatDateValue(vehicle.authorization_expiry_date, t("notAvailable"))} ltr />
+          </>
+        ) : (
+          <div className="flex items-center gap-3 rounded-lg bg-surface px-3 py-3 text-sm font-semibold text-muted">
+            <CarIcon className="size-5 shrink-0 text-primary" />
+            <p>{t("noVehicle")}</p>
+          </div>
+        )}
+      </SectionCard>
+
+      <div className="space-y-2">
+        <Link href="/change-password" className="flex min-h-12 items-center justify-center rounded-[0.85rem] border border-border bg-white px-4 text-sm font-bold text-navy [touch-action:manipulation]">
           {t("changePassword")}
         </Link>
         <form action={logoutDriverAction}>
           <input type="hidden" name="locale" value={locale} />
-          <button type="submit" className="min-h-14 w-full rounded-[0.85rem] bg-primary px-5 text-base font-semibold text-white [touch-action:manipulation]">
+          <button type="submit" className="min-h-12 w-full rounded-[0.85rem] bg-primary px-5 text-base font-semibold text-white [touch-action:manipulation]">
             {t("logout")}
           </button>
         </form>
+      </div>
     </div>
   );
 }
 
-function DetailsCard({ children, title }: { children: ReactNode; title: string }) {
+function SectionCard({ children, icon, subtitle, title }: { children: ReactNode; icon: ReactNode; subtitle?: string; title: string }) {
   return (
     <PageCard>
-      <h2 className="text-base font-bold text-navy">{title}</h2>
-      <dl className="mt-4 grid gap-4 sm:grid-cols-2">{children}</dl>
+      <div className="flex items-start gap-2.5">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">{icon}</span>
+        <div className="min-w-0">
+          <h2 className="text-base font-extrabold text-navy">{title}</h2>
+          {subtitle ? <p className="mt-0.5 text-xs font-medium text-muted">{subtitle}</p> : null}
+        </div>
+      </div>
+      <dl className="mt-3 divide-y divide-border">{children}</dl>
     </PageCard>
   );
 }
 
-function Info({ label, ltr, value }: { label: string; ltr?: boolean; value: string }) {
+function InfoRow({ icon, label, ltr, value }: { icon?: ReactNode; label: string; ltr?: boolean; value: string }) {
   return (
-    <div>
-      <dt className="text-xs font-bold text-muted">{label}</dt>
-      <dd className="mt-1 text-base font-semibold text-navy" dir={ltr ? "ltr" : undefined}>
-        {value}
-      </dd>
+    <div className="flex min-h-12 items-center gap-2.5 py-2 first:pt-0 last:pb-0">
+      {icon ? <span className="shrink-0 text-muted">{icon}</span> : null}
+      <dt className="min-w-0 flex-1 text-xs font-semibold text-muted">{label}</dt>
+      <dd className="max-w-[58%] break-words text-end text-sm font-bold text-navy" dir={ltr ? "ltr" : undefined}>{value}</dd>
     </div>
   );
 }
 
+function StatusBadge({ label, status }: { label: string; status: "active" | "suspended" }) {
+  const className = status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800";
+  return <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[0.68rem] font-bold ${className}`}><span aria-hidden="true" className={`size-1.5 rounded-full ${status === "active" ? "bg-emerald-500" : "bg-amber-500"}`} />{label}</span>;
+}
+
 function formatDateValue(value: string | null | undefined, fallback: string) {
   return value || fallback;
+}
+
+function getVehicleCategoryLabel(vehicleCategory: string, t: Awaited<ReturnType<typeof getTranslations>>) {
+  if (vehicleCategory === "car" || vehicleCategory === "motorcycle") {
+    return t(`vehicleCategories.${vehicleCategory}`);
+  }
+  return vehicleCategory;
 }

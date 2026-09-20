@@ -17,9 +17,8 @@ export const runtime = "nodejs";
 export const maxDuration = 45;
 
 type ShiftAction = "start" | "end";
-type DriverShiftInsert = Database["public"]["Tables"]["driver_shifts"]["Insert"];
-type DriverShiftUpdate = Database["public"]["Tables"]["driver_shifts"]["Update"];
 type SupabaseAdminClient = SupabaseClient<Database>;
+type SupabaseAuthClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 type ForbiddenCode =
   | RepresentativeContextCode
   | "image_path_forbidden"
@@ -52,12 +51,27 @@ export async function GET(request: Request) {
   }
 
   const admin = createSupabaseAdminClient();
+  const driverContext = await resolveRepresentativeContext(admin, user.id, {
+    enforcePasswordChange: true,
+    requireVehicle: true,
+    organizationSupabase: supabase,
+  });
+
+  if (driverContext.status !== "ready") {
+    return forbidden(crypto.randomUUID(), driverContext.stage, driverContext.status);
+  }
+
+  if (!isOwnedOdometerPath(photoPath, user.id)) {
+    return forbidden(crypto.randomUUID(), "image_ownership_validation", "image_owner_mismatch");
+  }
+
+  const driverId = driverContext.driver.id;
 
   if (action === "start") {
     const { data } = await admin
       .from("driver_shifts")
       .select("id, status, start_odometer_reading, start_ocr_confidence")
-      .eq("driver_id", user.id)
+      .eq("driver_id", driverId)
       .eq("start_photo_path", photoPath)
       .maybeSingle();
 
@@ -72,7 +86,7 @@ export async function GET(request: Request) {
     const { data } = await admin
       .from("driver_shifts")
       .select("id, status, end_odometer_reading, end_ocr_confidence")
-      .eq("driver_id", user.id)
+      .eq("driver_id", driverId)
       .eq("end_photo_path", photoPath)
       .maybeSingle();
 
@@ -155,6 +169,14 @@ export async function POST(request: Request) {
     }
     logStage(requestId, "representative_context_resolved");
 
+    const isPerOrder = driverContext.driver.settlement_type === "per_order";
+    if (!isPerOrder && driverContext.driver.settlement_type !== "tiers") {
+      if (isOwnedOdometerPath(photoPath, user.id)) {
+        await cleanupPhoto(photoPath, admin);
+      }
+      return jsonError("ORDER_SHIFT_ATTENDANCE_NOT_SUPPORTED", 403);
+    }
+
     stage = "image_path_validation";
     logStage(requestId, "image_path_validation_started");
     if (!isOdometerPathShape(photoPath)) {
@@ -220,6 +242,8 @@ export async function POST(request: Request) {
             photoCapturedAt,
             supabase: admin,
             expectedDigits,
+            rpcClient: supabase,
+            perOrder: isPerOrder,
           })
         : await endShift({
             driverId: driverContext.driver.id,
@@ -230,6 +254,8 @@ export async function POST(request: Request) {
             photoCapturedAt,
             supabase: admin,
             expectedDigits,
+            rpcClient: supabase,
+            perOrder: isPerOrder,
           });
 
     stage = "shift_saved";
@@ -293,6 +319,8 @@ async function startShift({
   photoCapturedAt,
   supabase,
   expectedDigits,
+  rpcClient,
+  perOrder,
 }: {
   driver: {
     id: string;
@@ -307,6 +335,8 @@ async function startShift({
   photoCapturedAt: string;
   supabase: SupabaseAdminClient;
   expectedDigits?: string;
+  rpcClient: SupabaseAuthClient;
+  perOrder: boolean;
 }) {
   const { data: existing } = await supabase
     .from("driver_shifts")
@@ -323,30 +353,14 @@ async function startShift({
     throw new Error("SHIFT_OPEN_EXISTS");
   }
 
-  const insert: DriverShiftInsert = {
-    driver_id: driver.id,
-    organization_id: driver.organization_id,
-    vehicle_id: vehicle?.id ?? null,
-    vehicle_plate_snapshot:
-      vehicle?.plate_number ?? driver.keeta_vehicle_plate_number ?? driver.vehicle_number ?? "",
-    status: "open",
-    start_odometer_reading: reading,
-    start_photo_path: photoPath,
-    start_photo_captured_at: photoCapturedAt,
-    start_ocr_confidence: verification.confidence,
-    start_ocr_reading: verification.accepted ? expectedDigits : undefined,
-    start_review_status: reading === null ? "pending_review" : undefined,
-    start_verified_at: reading !== null ? new Date().toISOString() : undefined,
-  };
-
-  const { data, error } = await supabase
-    .from("driver_shifts")
-    .insert(insert)
-    .select("id, status, started_at, start_odometer_reading, start_photo_captured_at, start_review_status, vehicle_plate_snapshot")
-    .single();
+  const { data, error } = await rpcClient.rpc((perOrder ? "start_driver_order_shift" : "start_driver_shift") as never, {
+    p_odometer_reading: reading,
+    p_photo_path: photoPath,
+    p_photo_captured_at: photoCapturedAt,
+  } as never);
 
   if (error) throw new Error(error.message);
-  return data;
+  return normalizeRpcShift(data);
 }
 
 async function endShift({
@@ -358,6 +372,8 @@ async function endShift({
   photoCapturedAt,
   supabase,
   expectedDigits,
+  rpcClient,
+  perOrder,
 }: {
   driverId: string;
   organizationId: string;
@@ -367,6 +383,8 @@ async function endShift({
   photoCapturedAt: string;
   supabase: SupabaseAdminClient;
   expectedDigits?: string;
+  rpcClient: SupabaseAuthClient;
+  perOrder: boolean;
 }) {
   const { data: openShift } = await supabase
     .from("driver_shifts")
@@ -390,32 +408,23 @@ async function endShift({
     throw new Error("SHIFT_NO_OPEN_SHIFT");
   }
   
-  if (reading !== null && openShift.start_odometer_reading !== null && reading < openShift.start_odometer_reading) throw new Error("SHIFT_END_BELOW_START");
-
-  const update: DriverShiftUpdate = {
-    status: "completed",
-    ended_at: new Date().toISOString(),
-    end_odometer_reading: reading,
-    end_photo_path: photoPath,
-    end_photo_captured_at: photoCapturedAt,
-    end_ocr_confidence: verification.confidence,
-    end_ocr_reading: verification.accepted ? expectedDigits : undefined,
-    end_review_status: reading === null ? "pending_review" : undefined,
-    end_verified_at: reading !== null ? new Date().toISOString() : undefined,
-  };
-
-  const { data, error } = await supabase
-    .from("driver_shifts")
-    .update(update)
-    .eq("id", openShift.id)
-    .eq("driver_id", driverId)
-    .eq("organization_id", organizationId)
-    .eq("status", "open")
-    .select("id, status, started_at, ended_at, start_odometer_reading, end_odometer_reading, end_photo_captured_at, end_review_status, vehicle_plate_snapshot")
-    .single();
+  const { data, error } = await rpcClient.rpc((perOrder ? "end_driver_order_shift" : "end_driver_shift") as never, {
+    p_odometer_reading: reading,
+    p_photo_path: photoPath,
+    p_photo_captured_at: photoCapturedAt,
+  } as never);
 
   if (error) throw new Error(error.message);
-  return data;
+  return normalizeRpcShift(data);
+}
+
+function normalizeRpcShift(value: unknown) {
+  if (!value || typeof value !== "object") throw new Error("SHIFT_SAVE_FAILED");
+  const shift = value as Record<string, unknown>;
+  if (typeof shift.id !== "string" || typeof shift.status !== "string") {
+    throw new Error("SHIFT_SAVE_FAILED");
+  }
+  return { id: shift.id, status: shift.status };
 }
 
 async function recordActivity({

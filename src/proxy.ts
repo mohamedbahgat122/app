@@ -11,7 +11,6 @@ const protectedSegments = new Set([
   "home",
   "notifications",
   "requests",
-  "salary",
   "shifts",
   "tasks",
   "vehicle",

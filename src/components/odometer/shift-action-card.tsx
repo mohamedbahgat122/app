@@ -18,6 +18,7 @@ type CapturedPhoto = {
 type ShiftActionCardProps = {
   mode: ShiftMode;
   startReading?: number | null;
+  disabled?: boolean;
 };
 
 type OdometerShiftResponse =
@@ -42,7 +43,7 @@ type OdometerShiftResponse =
       message?: string;
     };
 
-export function ShiftActionCard({ mode }: ShiftActionCardProps) {
+export function ShiftActionCard({ mode, disabled = false }: ShiftActionCardProps) {
   const t = useTranslations("Odometer");
   const router = useRouter();
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -273,8 +274,9 @@ export function ShiftActionCard({ mode }: ShiftActionCardProps) {
         {!photo ? (
           <button
             type="button"
+            disabled={disabled}
             onClick={() => setIsCameraOpen(true)}
-            className="min-h-14 w-full rounded-[0.85rem] bg-primary px-5 text-base font-semibold text-white shadow-[0_12px_24px_rgba(11,108,251,0.16)] transition [touch-action:manipulation] active:translate-y-px"
+            className="min-h-14 w-full rounded-[0.85rem] bg-primary px-5 text-base font-semibold text-white shadow-[0_12px_24px_rgba(11,108,251,0.16)] transition [touch-action:manipulation] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
           >
             {title}
           </button>

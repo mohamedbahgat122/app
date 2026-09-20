@@ -16,18 +16,24 @@ export type VerifiedDriverSession = {
     fullName: string;
     iqamaNumber: string | null;
     iqamaExpiryDate: string | null;
+    drivingLicenseNumber: string | null;
+    drivingLicenseExpiryDate: string | null;
     driverCardNumber: string | null;
     driverCardExpiryDate: string | null;
     keetaVehiclePlateNumber: string | null;
     actualVehiclePlateNumber: string | null;
     profilePhotoPath: string | null;
     status: "active" | "suspended";
+    settlementType: "tiers" | "per_order";
     vehiclePlate: string | null;
   };
   organization: {
     id: string;
     name: string;
+    code: string;
   } | null;
+  accountStatus: "active" | "suspended";
+  jobTitle: string | null;
   vehicle: RepresentativeVehicle | null;
   mustChangePassword: boolean;
 };
@@ -98,12 +104,15 @@ export async function getVerifiedDriverSession(
         fullName: context.driver.full_name,
         iqamaNumber: context.driver.iqama_number,
         iqamaExpiryDate: context.driver.iqama_expiry_date,
+        drivingLicenseNumber: context.driver.driving_license_number,
+        drivingLicenseExpiryDate: context.driver.driving_license_expiry_date,
         driverCardNumber: context.driver.driver_card_number,
         driverCardExpiryDate: context.driver.driver_card_expiry_date,
         keetaVehiclePlateNumber: context.driver.keeta_vehicle_plate_number,
         actualVehiclePlateNumber: context.driver.vehicle_number,
         profilePhotoPath: context.driver.profile_photo_path,
         status: context.driver.status,
+        settlementType: context.driver.settlement_type ?? "tiers",
         vehiclePlate: context.plate,
       },
       organization:
@@ -111,8 +120,11 @@ export async function getVerifiedDriverSession(
           ? {
               id: context.organization.id,
               name: context.organization.name,
+              code: context.organization.code,
             }
           : null,
+      accountStatus: context.profile.status,
+      jobTitle: context.profile.job_title,
       vehicle: context.vehicle,
       mustChangePassword: Boolean(context.profile.must_change_password),
     },

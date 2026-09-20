@@ -1,6 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { RequestForm } from "@/components/requests/request-form";
+import { RequestForm, RequestPageHeader } from "@/components/requests/request-form";
 import { isLocale } from "@/config/locales";
 import { loadDriverSession } from "@/lib/app/driver-app-data";
 
@@ -22,9 +22,13 @@ export default async function NewLeaveRequestPage({ params }: RouteProps) {
        <path d="m15 18-6-6 6-6"/>
       </svg>
      </Link>
-     <h1 className="text-xl font-bold text-navy">{t("choices.leave")}</h1>
+     <RequestPageHeader icon="leave" title={t("choices.leave")} subtitle={t("subtitles.leave")} />
     </div>
-    <RequestForm type="leave" vehiclePlate={app.session.driver.vehiclePlate} />
+    <RequestForm
+     type="leave"
+     driverId={app.session.driver.id}
+     vehiclePlate={app.session.driver.vehiclePlate}
+    />
    </main>
  );
 }

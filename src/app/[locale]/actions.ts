@@ -8,6 +8,7 @@ import {
 import { getVerifiedDriverSession } from "@/lib/auth/driver-session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getRiyadhDateString } from "@/lib/app/shift-change-window";
 import type { Database } from "@/types/database";
 
 export type LoginActionState = {
@@ -46,6 +47,12 @@ export type DriverRequestActionState = {
     | "request_insert_failed"
     | "request_permission_denied"
     | "request_type_not_supported";
+  messageKey?: string;
+};
+
+export type OrderShiftChangeActionState = {
+  resetKey?: string;
+  status: "idle" | "success" | "validation_error" | "auth_error" | "submit_failed";
   messageKey?: string;
 };
 
@@ -333,6 +340,10 @@ export async function submitMeetingRequestAction(
     return requestValidation("meeting_manager_required");
   }
 
+  if (preferredTime && !isMeetingTimeWithinOfficeHours(preferredTime)) {
+    return requestValidation("invalidMeetingTime");
+  }
+
   return submitRequestRpc("submit_driver_meeting_request", {
     p_subject: subject,
     p_reason: reason,
@@ -341,6 +352,16 @@ export async function submitMeetingRequestAction(
     p_preferred_time: preferredTime || undefined,
     p_submission_id: submissionId,
   });
+}
+
+function isMeetingTimeWithinOfficeHours(value: string) {
+  if (!/^\d{2}:\d{2}$/.test(value)) return false;
+
+  const [hours, minutes] = value.split(":").map(Number);
+  if (hours > 23 || minutes > 59) return false;
+
+  const totalMinutes = hours * 60 + minutes;
+  return totalMinutes >= 10 * 60 && totalMinutes <= 20 * 60;
 }
 
 export async function submitOilChangeRequestAction(
@@ -687,13 +708,21 @@ export async function submitShiftChangeRequestAction(
 ): Promise<DriverRequestActionState> {
   const currentShiftId = formData.get("currentShiftId")?.toString() ?? "";
   const requestedShiftId = formData.get("requestedShiftId")?.toString() ?? "";
-  const requestedWeekStartDate = formData.get("requestedWeekStartDate")?.toString() ?? "";
   const driverNote = formData.get("driverNote")?.toString().trim() ?? "";
+  const requestedWeekStartDate =
+    formData.get("requestedWeekStartDate")?.toString() ?? "";
 
-  if (!currentShiftId || !requestedShiftId || !requestedWeekStartDate) {
+  if (!currentShiftId || !requestedShiftId) {
     return {
       status: "validation_error",
       messageKey: "allFieldsRequired",
+    };
+  }
+
+  if (!isDate(requestedWeekStartDate)) {
+    return {
+      status: "validation_error",
+      messageKey: "shiftChangeWindowClosed",
     };
   }
 
@@ -724,13 +753,51 @@ export async function submitShiftChangeRequestAction(
     };
   }
 
+  const today = getRiyadhDateString();
+  const { data: effectiveAssignment, error: assignmentError } = await supabase
+    .from("organization_shift_assignments")
+    .select("shift_template_id")
+    .eq("driver_id", driver.id)
+    .eq("organization_id", organizationId)
+    .eq("is_active", true)
+    .or(`assignment_start_date.is.null,assignment_start_date.lte.${today}`)
+    .or(`assignment_end_date.is.null,assignment_end_date.gte.${today}`)
+    .order("assignment_start_date", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (assignmentError || effectiveAssignment?.shift_template_id !== currentShiftId) {
+    return {
+      status: "submit_failed",
+      messageKey: "currentShiftChanged",
+    };
+  }
+
+  const { data: requestedShift, error: requestedShiftError } = await supabase
+    .from("organization_shift_templates")
+    .select("id")
+    .eq("id", requestedShiftId)
+    .eq("organization_id", organizationId)
+    .eq("is_active", true)
+    .is("archived_at", null)
+    .not("published_at", "is", null)
+    .maybeSingle();
+
+  if (requestedShiftError || !requestedShift) {
+    return {
+      status: "validation_error",
+      messageKey: "requestedShiftUnavailable",
+    };
+  }
+
   // Verify pending requests
-  const { data: pendingRequests, error: pendingError } = await supabase
+  const { data: actionableRequests, error: pendingError } = await supabase
     .from("driver_shift_change_requests")
     .select("id")
     .eq("driver_id", driver.id)
     .eq("requested_week_start_date", requestedWeekStartDate)
-    .eq("status", "pending");
+    .in("status", ["pending", "approved"]);
 
   if (pendingError) {
     return {
@@ -739,10 +806,10 @@ export async function submitShiftChangeRequestAction(
     };
   }
 
-  if (pendingRequests && pendingRequests.length > 0) {
+  if (actionableRequests && actionableRequests.length > 0) {
     return {
       status: "validation_error",
-      messageKey: "alreadyHasPending",
+      messageKey: "alreadyHasActionable",
     };
   }
 
@@ -763,11 +830,89 @@ export async function submitShiftChangeRequestAction(
     console.error("submitShiftChangeRequestAction insert error:", insertError);
     return {
       status: "submit_failed",
-      messageKey: "insertFailed",
+      messageKey:
+        insertError.code === "42501"
+          ? "shiftChangeWindowClosed"
+          : "insertFailed",
     };
   }
 
   return {
     status: "success",
   };
+}
+
+export async function submitOrderShiftChangeRequestAction(
+  _previousState: OrderShiftChangeActionState,
+  formData: FormData,
+): Promise<OrderShiftChangeActionState> {
+  const requestedTemplateId = formData.get("requestedOrderPeriodTemplateId")?.toString() ?? "";
+  const reason = formData.get("reason")?.toString().trim() ?? "";
+
+  if (!requestedTemplateId) {
+    return { status: "validation_error", messageKey: "templateRequired" };
+  }
+  if (reason.length > 2000) {
+    return { status: "validation_error", messageKey: "reasonTooLong" };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const sessionResult = await getVerifiedDriverSession(supabase);
+
+  if (
+    sessionResult.status !== "verified" ||
+    sessionResult.session.mustChangePassword ||
+    sessionResult.session.driver.settlementType !== "per_order"
+  ) {
+    return { status: "auth_error", messageKey: "unauthorized" };
+  }
+
+  const rpc = (supabase.rpc as unknown as (
+    functionName: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { code?: string; message?: string; details?: string; hint?: string } | null }>).bind(supabase);
+  const { data, error } = await rpc("create_my_order_shift_change_request", {
+    p_requested_order_period_template_id: requestedTemplateId,
+    p_reason: reason || null,
+  });
+
+  if (error) {
+    console.error("[driver-app:order-shift-change-submit]", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return { status: "submit_failed", messageKey: "submitFailed" };
+  }
+
+  const result = data && typeof data === "object" ? (data as Record<string, unknown>) : null;
+  if (result?.success === true) {
+    return { resetKey: Date.now().toString(), status: "success" };
+  }
+
+  return {
+    status: "submit_failed",
+    messageKey: mapOrderShiftChangeError(
+      typeof result?.error === "string" ? result.error : "",
+    ),
+  };
+}
+
+function mapOrderShiftChangeError(error: string) {
+  switch (error) {
+    case "ORDER_SHIFT_CHANGE_DAY_NOT_ALLOWED":
+      return "dayNotAllowed";
+    case "ORDER_SHIFT_CHANGE_PENDING_REQUEST_EXISTS":
+    case "ORDER_SHIFT_CHANGE_TARGET_ALREADY_REQUESTED":
+      return "alreadyRequested";
+    case "ORDER_SHIFT_CHANGE_TEMPLATE_INVALID":
+      return "templateUnavailable";
+    case "ORDER_SHIFT_CHANGE_NO_CURRENT_ASSIGNMENT":
+      return "noCurrentAssignment";
+    case "ORDER_SHIFT_CHANGE_TEMPLATE_UNCHANGED":
+      return "sameTemplate";
+    default:
+      return "submitFailed";
+  }
 }

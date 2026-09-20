@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { Suspense } from "react";
 import type { ReactNode } from "react";
 import { DriverAvatar } from "@/components/app-shell/driver-avatar";
 import { HeaderLanguageSwitch } from "@/components/app-shell/header-language-switch";
@@ -26,10 +27,9 @@ export async function DriverTopHeader({
  const firstName = getFirstName(driverName);
 
  const supabase = await createSupabaseServerClient();
- const [avatarUrl, notificationCount, oilStatus] = await Promise.all([
+ const [avatarUrl, notificationCount] = await Promise.all([
   createDriverAvatarUrl(session.driver.profilePhotoPath),
   loadDriverUnreadNotificationCount(supabase),
-  loadDriverOilMaintenanceStatus(session),
  ]);
 
  return (
@@ -45,14 +45,9 @@ export async function DriverTopHeader({
  </div>
  <div className="flex shrink-0 items-center gap-1">
   <HeaderLanguageSwitch />
-  <HeaderIconLink
-   href="/requests/new/oil-change"
-   label={getOilStatusLabel(t, oilStatus.oilStatus)}
-   title={getOilStatusLabel(t, oilStatus.oilStatus)}
-   tone={getOilStatusTone(oilStatus)}
-  >
-  <OilWarningIcon />
-  </HeaderIconLink>
+  <Suspense fallback={<OilHeaderFallback label={t("oilStatus.default")} />}>
+   <OilHeaderStatus session={session} />
+  </Suspense>
   <HeaderIconLink href="/notifications" label={t("notifications")} count={notificationCount}>
   <BellIcon />
   </HeaderIconLink>
@@ -66,6 +61,35 @@ export async function DriverTopHeader({
  </div>
  </div>
  </header>
+ );
+}
+
+async function OilHeaderStatus({ session }: DriverTopHeaderProps) {
+ const t = await getTranslations("Shell");
+ const oilStatus = await loadDriverOilMaintenanceStatus(session);
+ const label = getOilStatusLabel(t, oilStatus.oilStatus);
+
+ return (
+  <HeaderIconLink
+   href="/requests/new/oil-change"
+   label={label}
+   title={label}
+   tone={getOilStatusTone(oilStatus)}
+  >
+   <OilWarningIcon />
+  </HeaderIconLink>
+ );
+}
+
+function OilHeaderFallback({ label }: { label: string }) {
+ return (
+  <HeaderIconLink
+   href="/requests/new/oil-change"
+   label={label}
+   title={label}
+  >
+   <OilWarningIcon />
+  </HeaderIconLink>
  );
 }
 

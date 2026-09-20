@@ -1,10 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useMemo } from "react";
+import { useActionState, useEffect } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { submitShiftChangeRequestAction } from "@/app/[locale]/actions";
-import type { RecentShiftChangeRequest } from "@/lib/app/driver-app-data";
+import { suppressNextRealtimeRefresh } from "@/components/app-shell/realtime-refresh";
+import type {
+ DriverShiftChangeWindow,
+ RecentShiftChangeRequest,
+} from "@/lib/app/driver-app-data";
 
 type ShiftTemplate = {
  id: string;
@@ -23,15 +27,19 @@ type PendingRequest = {
 } | null;
 
 export function ShiftChangeRequestForm({
+ driverId,
  currentShiftId,
  availableShifts,
  pendingRequest,
  recentRequests,
+ shiftChangeWindow,
 }: {
+ driverId: string;
  currentShiftId: string;
  availableShifts: ShiftTemplate[];
  pendingRequest: PendingRequest;
  recentRequests: RecentShiftChangeRequest[];
+ shiftChangeWindow: DriverShiftChangeWindow;
 }) {
  const t = useTranslations("Shifts");
  const locale = useLocale();
@@ -41,22 +49,42 @@ export function ShiftChangeRequestForm({
   { status: "idle" }
  );
 
- // Calculate next Sunday
- const nextSundayStr = useMemo(() => {
-  const today = new Date();
-  const nextSunday = new Date(today);
-  nextSunday.setDate(today.getDate() + (7 - today.getDay()));
-  return formatDateInputValue(nextSunday);
- }, []);
+ const targetSunday =
+  shiftChangeWindow.success ? shiftChangeWindow.target_week_start : "";
+ const allowedDays =
+  shiftChangeWindow.success
+   ? shiftChangeWindow.allowed_weekdays.flatMap((day) => {
+      const weekdayKey = weekdayKeys[day];
+      return weekdayKey ? [t(`weekdays.${weekdayKey}`)] : [];
+     })
+   : [];
+ const canSubmitToday =
+  shiftChangeWindow.success &&
+  shiftChangeWindow.can_submit_today &&
+  allowedDays.length === shiftChangeWindow.allowed_weekdays.length;
 
  useEffect(() => {
-  if (state.status === "success") {
+ if (state.status === "success") {
+   suppressNextRealtimeRefresh({
+    table: "driver_shift_change_requests",
+    filter: `driver_id=eq.${driverId}`,
+    eventType: "INSERT",
+   });
+   router.refresh();
+  } else if (
+   state.status === "submit_failed" &&
+   state.messageKey === "shiftChangeWindowClosed"
+  ) {
    router.refresh();
   }
- }, [router, state.status]);
+ }, [driverId, router, state.status]);
 
  const latestRequest = recentRequests[0] ?? null;
  const historyRequests = latestRequest ? recentRequests.slice(1) : recentRequests;
+ const errorMessageKey =
+  state.status !== "idle" && state.status !== "success"
+   ? state.messageKey ?? "submitFailed"
+   : null;
 
  return (
   <div className="mt-4 space-y-4">
@@ -93,11 +121,31 @@ export function ShiftChangeRequestForm({
      <h3 className="text-base font-bold text-amber-900">
       {t("pendingRequestTitle")}
      </h3>
-     <p className="mt-2 text-sm font-semibold text-amber-800">
+   <p className="mt-2 text-sm font-semibold text-amber-800">
       {t("pendingRequestDesc", {
        shift: pendingRequest.requested_shift?.name || "",
        date: formatBusinessDate(pendingRequest.requested_week_start_date, locale),
-      })}
+     })}
+    </p>
+   </div>
+   ) : !shiftChangeWindow.success ? (
+    <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+     <h3 className="text-base font-bold text-amber-900">
+      {t("requestWindowUnavailableTitle")}
+     </h3>
+     <p className="mt-2 text-sm font-semibold text-amber-800">
+      {t("requestWindowUnavailableDesc")}
+     </p>
+    </div>
+   ) : !canSubmitToday ? (
+    <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+     <h3 className="text-base font-bold text-amber-900">
+      {t("requestWindowClosedTitle")}
+     </h3>
+     <p className="mt-2 text-sm font-semibold text-amber-800">
+      {shiftChangeWindow.allowed_weekdays.length > 0
+       ? t("requestWindowClosedDesc", { days: allowedDays.join(", ") })
+       : t("requestWindowClosedAllWeekDesc")}
      </p>
     </div>
    ) : (
@@ -110,7 +158,12 @@ export function ShiftChangeRequestForm({
    </p>
 
    <input type="hidden" name="currentShiftId" value={currentShiftId} />
-   <input type="hidden" name="requestedWeekStartDate" value={nextSundayStr} />
+   <input type="hidden" name="requestedWeekStartDate" value={targetSunday} />
+   <p className="rounded-2xl bg-slate-50 p-3 text-xs font-bold text-slate-600">
+    {t("targetExecutionLabel", {
+     date: formatBusinessDate(targetSunday, locale),
+    })}
+   </p>
 
    <div>
     <label htmlFor="requestedShiftId" className="block text-xs font-bold text-slate-500 mb-1.5">
@@ -152,17 +205,11 @@ export function ShiftChangeRequestForm({
     </p>
    )}
 
-   {state.status === "validation_error" && (
+   {errorMessageKey ? (
     <p className="text-sm font-bold text-red-600">
-     {t("errors.validationError")}
+     {t(`errors.${errorMessageKey}`)}
     </p>
-   )}
-
-   {state.status === "submit_failed" && (
-    <p className="text-sm font-bold text-red-600">
-     {t("errors.submitFailed")}
-    </p>
-   )}
+   ) : null}
 
    <button
     type="submit"
@@ -177,6 +224,17 @@ export function ShiftChangeRequestForm({
  );
 }
 
+const weekdayKeys: Record<number, string> = {
+ 0: "sunday",
+ 1: "monday",
+ 2: "tuesday",
+ 3: "wednesday",
+ 4: "thursday",
+ 5: "friday",
+ 6: "saturday",
+};
+
+
 function ShiftRequestCard({
  request,
  title,
@@ -190,7 +248,7 @@ function ShiftRequestCard({
  t: ReturnType<typeof useTranslations<"Shifts">>;
  prominent?: boolean;
 }) {
- const statusTone = getStatusTone(request.status);
+ const statusTone = getStatusTone(request.display_status);
  const reviewNote = request.review_note?.trim();
 
  return (
@@ -211,13 +269,13 @@ function ShiftRequestCard({
      </p>
     </div>
     <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusTone}`}>
-     {t(`requestStatuses.${request.status}`)}
+     {t(`requestStatuses.${request.display_status}`)}
     </span>
    </div>
 
    <dl className="mt-3 grid gap-2 text-xs font-semibold text-slate-600 sm:grid-cols-2">
     <ShiftRequestDetail
-     label={t("requestedWeekLabel")}
+     label={t("executionDateLabel")}
      value={formatBusinessDate(request.requested_week_start_date, locale)}
     />
     <ShiftRequestDetail
@@ -231,6 +289,12 @@ function ShiftRequestCard({
      />
     ) : null}
    </dl>
+
+   <p className="mt-3 rounded-2xl bg-slate-50 p-3 text-xs font-bold leading-6 text-slate-700">
+    {t(`requestStatusMessages.${request.display_status}`, {
+     date: formatBusinessDate(request.requested_week_start_date, locale),
+    })}
+   </p>
 
    {reviewNote ? (
     <div className="mt-3 rounded-2xl bg-white p-3 text-xs font-semibold leading-6 text-slate-700">
@@ -251,8 +315,10 @@ function ShiftRequestDetail({ label, value }: { label: string; value: string }) 
  );
 }
 
-function getStatusTone(status: RecentShiftChangeRequest["status"]) {
- if (status === "approved") return "bg-emerald-100 text-emerald-800";
+function getStatusTone(status: RecentShiftChangeRequest["display_status"]) {
+ if (status === "scheduled") return "bg-sky-100 text-sky-800";
+ if (status === "completed") return "bg-emerald-100 text-emerald-800";
+ if (status === "review_needed") return "bg-orange-100 text-orange-800";
  if (status === "rejected") return "bg-rose-100 text-rose-800";
  return "bg-amber-100 text-amber-800";
 }
@@ -269,14 +335,6 @@ function formatBusinessDate(value: string, locale: string) {
   month: "short",
   day: "numeric",
  }).format(new Date(year, month - 1, day));
-}
-
-function formatDateInputValue(value: Date) {
- const year = value.getFullYear();
- const month = String(value.getMonth() + 1).padStart(2, "0");
- const day = String(value.getDate()).padStart(2, "0");
-
- return `${year}-${month}-${day}`;
 }
 
 function formatDateTime(value: string, locale: string) {

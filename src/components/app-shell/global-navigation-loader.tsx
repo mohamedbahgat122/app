@@ -77,17 +77,14 @@ export function GlobalNavigationLoader({ children }: { children: React.ReactNode
 
   return (
     <>
-      <div 
-        className={`transition-opacity duration-200 ${
-          isNavigating ? "pointer-events-none opacity-50" : "opacity-100"
-        }`}
-      >
-        {children}
-      </div>
-      
+      <div>{children}</div>
       {isNavigating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-          <div className="h-12 w-12 animate-spin rounded-full border-[4px] border-primary border-t-transparent shadow-lg"></div>
+        <div
+          className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-0.5 overflow-hidden bg-primary-soft"
+          role="status"
+          aria-label="Loading"
+        >
+          <div className="h-full w-2/5 animate-pulse rounded-full bg-primary" />
         </div>
       )}
     </>

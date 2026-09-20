@@ -1,30 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { RequestForm } from "@/components/requests/request-form";
-import { OilStatusCard } from "@/components/requests/oil-status-card";
-import type { DriverOilMaintenanceStatus } from "@/lib/app/oil-maintenance-types";
+import { OilOdometerProvider } from "@/components/requests/oil-odometer-context";
 
 export function OilChangeRequestPanel({
-  oilStatus,
+  driverId,
   vehiclePlate,
+  children,
 }: {
-  oilStatus: DriverOilMaintenanceStatus;
+  driverId: string;
   vehiclePlate: string | null;
+  children?: ReactNode;
 }) {
   const [odometerReading, setOdometerReading] = useState("");
 
   return (
-    <div className="space-y-4">
-      <RequestForm
-        type="oil-change"
-        vehiclePlate={vehiclePlate}
-        onOdometerReadingChange={setOdometerReading}
-      />
-      <OilStatusCard
-        status={oilStatus}
-        previewOdometerReading={odometerReading}
-      />
-    </div>
+    <OilOdometerProvider value={odometerReading}>
+      <div className="space-y-4">
+        <RequestForm
+          type="oil-change"
+          driverId={driverId}
+          vehiclePlate={vehiclePlate}
+          onOdometerReadingChange={setOdometerReading}
+        />
+        {children}
+      </div>
+    </OilOdometerProvider>
   );
 }

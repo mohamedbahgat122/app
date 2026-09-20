@@ -163,9 +163,8 @@ export function OdometerCamera({ onClose, onUsePhoto, onRetake }: OdometerCamera
       const nextTorch = !torchEnabled;
       await track.applyConstraints({ advanced: [{ torch: nextTorch } as any] });
       setTorchEnabled(nextTorch);
-      console.info("[odometer-camera] torch_changed", { enabled: nextTorch });
-    } catch (error) {
-      console.error("Failed to toggle torch", error);
+      } catch (error) {
+        console.error("Failed to toggle torch", error);
       setTorchEnabled(false);
     }
   }
@@ -236,19 +235,10 @@ export function OdometerCamera({ onClose, onUsePhoto, onRetake }: OdometerCamera
       return;
     }
 
-    console.info("[odometer-camera] frame_crop_calculated", {
-      videoIntrinsicWidth: video.videoWidth,
-      videoIntrinsicHeight: video.videoHeight,
-      videoRenderedWidth: crop.displayedWidth,
-      videoRenderedHeight: crop.displayedHeight,
-      frameRect: crop.frameRect,
-      sourceRect: { x: crop.sourceX, y: crop.sourceY, w: crop.sourceWidth, h: crop.sourceHeight }
-    });
-
     const canvas = document.createElement("canvas");
     canvas.width = crop.sourceWidth;
     canvas.height = crop.sourceHeight;
-    const context = canvas.getContext("2d");
+    const context = canvas.getContext("2d", { willReadFrequently: true });
 
     if (!context) {
       setErrorKey("captureFailed");
@@ -295,13 +285,6 @@ export function OdometerCamera({ onClose, onUsePhoto, onRetake }: OdometerCamera
         return;
       }
 
-      // Diagnostic log for center pixel
-      const pixel = context.getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data;
-      console.info("[odometer-camera] drawImage_check (center_pixel)", { 
-        r: pixel[0], g: pixel[1], b: pixel[2], a: pixel[3],
-        isEmpty: pixel[0] === 0 && pixel[1] === 0 && pixel[2] === 0 && pixel[3] === 0
-      });
-
     } catch (err) {
       console.error("[odometer-camera] drawImage_error", err);
       setErrorKey("captureFailed");
@@ -320,13 +303,6 @@ export function OdometerCamera({ onClose, onUsePhoto, onRetake }: OdometerCamera
       autoCaptureLockedRef.current = false;
       return;
     }
-
-    console.info("[odometer-camera] capture_success_trace", {
-      videoIntrinsic: { width: video.videoWidth, height: video.videoHeight },
-      canvas: { width: canvas.width, height: canvas.height },
-      blobSize: blob.size,
-      blobType: blob.type
-    });
 
     clearAutoCaptureTimer();
     setIsFinalizing(true);
@@ -467,7 +443,6 @@ export function OdometerCamera({ onClose, onUsePhoto, onRetake }: OdometerCamera
                   src={capture.url} 
                   alt={t("previewAlt")} 
                   className="max-h-full max-w-full object-contain" 
-                  onLoad={() => console.info("[odometer-camera] img_onLoad_fired", { url: capture.url })}
                   onError={() => console.error("[odometer-camera] img_onError_fired", { url: capture.url })}
                 />
               </div>

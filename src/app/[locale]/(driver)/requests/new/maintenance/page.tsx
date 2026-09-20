@@ -1,6 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { RequestForm } from "@/components/requests/request-form";
+import { RequestForm, RequestPageHeader } from "@/components/requests/request-form";
 import { isLocale } from "@/config/locales";
 import { loadDriverSession } from "@/lib/app/driver-app-data";
 import { resolveMaintenanceVehicleStatus } from "@/lib/app/maintenance-vehicle";
@@ -24,10 +24,11 @@ export default async function NewMaintenanceRequestPage({ params }: RouteProps) 
        <path d="m15 18-6-6 6-6"/>
       </svg>
      </Link>
-     <h1 className="text-xl font-bold text-navy">{t("choices.maintenance")}</h1>
+     <RequestPageHeader icon="maintenance" title={t("choices.maintenance")} subtitle={t("subtitles.maintenance")} />
     </div>
     <RequestForm
      type="maintenance"
+     driverId={app.session.driver.id}
      vehiclePlate={
       maintenanceVehicle.status === "linked"
        ? maintenanceVehicle.plateNumber

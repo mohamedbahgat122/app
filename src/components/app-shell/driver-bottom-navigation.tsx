@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CarIcon, GaugeIcon, ListIcon, MoneyIcon, ShiftIcon, HomeIcon } from "@/components/app-shell/icons";
+import { CarIcon, GaugeIcon, ListIcon, ShiftIcon, HomeIcon } from "@/components/app-shell/icons";
 import { NavigationItem } from "@/components/app-shell/navigation-item";
 import { usePathname } from "@/i18n/navigation";
 
@@ -19,7 +19,6 @@ export function DriverBottomNavigation() {
   { href: "/requests", icon: <ListIcon />, label: t("requests") },
   { href: "/shifts", icon: <ShiftIcon />, label: t("shifts") },
   { href: "/vehicle", icon: <CarIcon />, label: t("vehicle") },
-  { href: "/salary", icon: <MoneyIcon />, label: t("salary") },
  ],
  [t],
  );

@@ -86,6 +86,8 @@ export function getLocalizedNotificationContent({
         ? t("openWarning")
         : notification.entityType === "driver_app_request"
           ? t("openRequest")
+          : notification.entityType === "driver_shift_change_request"
+            ? t("openRequest")
           : t("open"),
   };
 }

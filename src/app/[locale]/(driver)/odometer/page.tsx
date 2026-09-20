@@ -1,8 +1,11 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { PageCard } from "@/components/app-shell/page-card";
 import { ShiftActionCard } from "@/components/odometer/shift-action-card";
+import { AttendanceStatus } from "@/components/odometer/attendance-status";
+import { OrderShiftOperationalStatus } from "@/components/shifts/order-shift-operational-status";
+import { OrderAttendanceActiveStatus } from "@/components/odometer/order-attendance-active-status";
 import { isLocale } from "@/config/locales";
-import { loadDriverSession, loadShiftSummary, loadDriverShiftHistory } from "@/lib/app/driver-app-data";
+import { loadDriverSession, loadShiftSummary, loadDriverShiftHistory, loadDriverAttendanceContext, loadDriverOrderShiftOperationalContext } from "@/lib/app/driver-app-data";
 import { Link } from "@/i18n/navigation";
 
 type HomeRouteProps = {
@@ -32,10 +35,15 @@ export default async function HomeRoute({ params, searchParams }: HomeRouteProps
 
   if (app.status === "application_error") return null;
 
+  const isPerOrder = app.session.driver.settlementType === "per_order";
   const { openShift, latestShift } = await loadShiftSummary(
     app.session.driver.id,
     app.supabase,
   );
+  const attendance = isPerOrder ? null : await loadDriverAttendanceContext(app.supabase);
+  const orderOperationalContext = isPerOrder
+    ? await loadDriverOrderShiftOperationalContext(app.supabase)
+    : null;
   const completedToday = isToday(latestShift?.ended_at);
   const shiftStatus = openShift
     ? "open"
@@ -89,15 +97,113 @@ export default async function HomeRoute({ params, searchParams }: HomeRouteProps
           </PageCard>
         ) : null}
 
-        {openShift ? (
-          <ShiftActionCard mode="end" startReading={openShift.start_odometer_reading} />
-        ) : completedToday ? null : (
-          <ShiftActionCard mode="start" />
+        {isPerOrder ? (
+          <PerOrderStartArea context={orderOperationalContext} locale={locale} openShift={openShift} />
+        ) : (
+          <>
+            <AttendanceStatus context={attendance} locale={locale} />
+            {openShift ? (
+              <ShiftActionCard mode="end" startReading={openShift.start_odometer_reading} disabled={attendance?.can_end_now !== true} />
+            ) : attendance?.scheduled_start_at && attendance.state !== "no_assignment" && attendance.state !== "no_current_assignment" && attendance.state !== "unconfigured" ? (
+              <ShiftActionCard mode="start" disabled={attendance.can_start_now !== true} />
+            ) : null}
+          </>
         )}
 
         <ShiftHistorySection driverId={app.session.driver.id} page={page} pageSize={pageSize} locale={locale} />
       </div>
   );
+}
+
+function PerOrderStartArea({ context, locale, openShift }: { context: Awaited<ReturnType<typeof loadDriverOrderShiftOperationalContext>>; locale: string; openShift: Awaited<ReturnType<typeof loadShiftSummary>>["openShift"] }) {
+  const labels = getOperationalLabels(locale);
+  const hasAssignment = context !== null && context.state !== "no_assignment";
+  const canStart = context?.state === "open" || context?.state === "manually_opened";
+
+  return (
+    <div className="space-y-3" dir={locale === "ar" || locale === "ur" ? "rtl" : "ltr"}>
+      {openShift ? <>
+        <OrderAttendanceActiveStatus startedAt={context?.actual_started_at ?? openShift.started_at} endAvailableAt={context?.end_available_at ?? null} endDelayConfigured={context?.end_available_at != null} locale={locale} />
+        <ShiftActionCard mode="end" startReading={openShift.start_odometer_reading} disabled={context?.can_end_now !== true} />
+      </> : <>
+        <OrderShiftOperationalStatus context={context} labels={labels} locale={locale} compact />
+        {hasAssignment ? <ShiftActionCard mode="start" disabled={!canStart} /> : null}
+      </>}
+    </div>
+  );
+}
+
+function getOperationalLabels(locale: string): Record<string, string> {
+  if (locale === "ar") {
+    return {
+      status: "حالة شيفت الطلبات",
+      open: "شيفتك مفتوح الآن",
+      manuallyOpened: "تم فتح شيفتك الآن بواسطة الإدارة",
+      beforeOpen: "شيفتك ستفتح قريبًا",
+      closed: "انتهت نافذة تشغيل شيفتك اليوم",
+      unpublished: "شيفتك غير منشور حاليًا",
+      disabled: "شيفتك معطل حاليًا",
+      unconfigured: "لم يتم تحديد وقت فتح وإغلاق شيفتك بعد",
+      no_assignment: "لا يوجد شيفت طلبات معين لك حاليًا",
+      unavailable: "تعذر تحميل حالة شيفت الطلبات",
+      opensAt: "يفتح الساعة",
+      closesAt: "يغلق الساعة",
+      start: "بدء الدوام",
+      startUnavailable: "سيتم تفعيل بدء الدوام عند فتح شيفتك.",
+    };
+  }
+  if (locale === "ur") {
+    return {
+      status: "آرڈر شفٹ کی حالت",
+      open: "آپ کی شفٹ ابھی کھلی ہے",
+      manuallyOpened: "انتظامیہ نے آپ کی شفٹ ابھی کھولی ہے",
+      beforeOpen: "آپ کی شفٹ جلد کھلے گی",
+      closed: "آج آپ کی شفٹ کا آپریٹنگ وقت ختم ہو گیا ہے",
+      unpublished: "آپ کی شفٹ فی الحال شائع نہیں ہے",
+      disabled: "آپ کی شفٹ فی الحال غیر فعال ہے",
+      unconfigured: "آپ کی شفٹ کے کھلنے اور بند ہونے کا وقت ابھی مقرر نہیں ہوا",
+      no_assignment: "فی الحال آپ کے لیے کوئی آرڈر شفٹ مقرر نہیں ہے",
+      unavailable: "آرڈر شفٹ کی حالت لوڈ نہیں ہو سکی",
+      opensAt: "کھلنے کا وقت",
+      closesAt: "بند ہونے کا وقت",
+      start: "ڈیوٹی شروع کریں",
+      startUnavailable: "آپ کی شفٹ کھلنے پر ڈیوٹی شروع کرنا فعال ہو جائے گا۔",
+    };
+  }
+  if (locale === "bn") {
+    return {
+      status: "অর্ডার শিফটের অবস্থা",
+      open: "আপনার শিফট এখন খোলা",
+      manuallyOpened: "প্রশাসন আপনার শিফট এখন খুলেছে",
+      beforeOpen: "আপনার শিফট শীঘ্রই খুলবে",
+      closed: "আজ আপনার শিফটের পরিচালনার সময় শেষ হয়েছে",
+      unpublished: "আপনার শিফট বর্তমানে প্রকাশিত নয়",
+      disabled: "আপনার শিফট বর্তমানে নিষ্ক্রিয়",
+      unconfigured: "আপনার শিফট খোলা ও বন্ধের সময় এখনও নির্ধারণ করা হয়নি",
+      no_assignment: "বর্তমানে আপনার জন্য কোনো অর্ডার শিফট নির্ধারিত নেই",
+      unavailable: "অর্ডার শিফটের অবস্থা লোড করা যায়নি",
+      opensAt: "খোলার সময়",
+      closesAt: "বন্ধের সময়",
+      start: "ডিউটি শুরু করুন",
+      startUnavailable: "আপনার শিফট খুললে ডিউটি শুরু করা সক্রিয় হবে।",
+    };
+  }
+  return {
+    status: "Order Shift status",
+    open: "Your shift is open now",
+    manuallyOpened: "Your shift was opened now by administration",
+    beforeOpen: "Your shift will open soon",
+    closed: "Your shift operating window has ended today",
+    unpublished: "Your shift is not currently published",
+    disabled: "Your shift is currently disabled",
+    unconfigured: "Your shift opening and closing times are not configured yet",
+    no_assignment: "No Order Work Shift is currently assigned to you",
+    unavailable: "Order Shift status could not be loaded",
+    opensAt: "Opens at",
+    closesAt: "Closes at",
+    start: "Start duty",
+    startUnavailable: "Start duty will be enabled when your shift opens.",
+  };
 }
 
 async function ShiftHistorySection({ driverId, page, pageSize, locale }: { driverId: string, page: number, pageSize: number, locale: string }) {

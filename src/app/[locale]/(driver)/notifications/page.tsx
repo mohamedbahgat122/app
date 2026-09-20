@@ -126,6 +126,10 @@ function getNotificationTargetPath(
     return `/${locale}/requests`;
   }
 
+  if (notification.entityType === "driver_shift_change_request") {
+    return `/${locale}/shifts`;
+  }
+
   return null;
 }
 

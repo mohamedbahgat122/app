@@ -1,6 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
+import { useOilOdometerReading } from "@/components/requests/oil-odometer-context";
 import {
   deriveOilMaintenanceMetrics,
   parseOilPreviewOdometer,
@@ -14,12 +15,15 @@ export function OilStatusCard({
   previewOdometerReading,
 }: {
   status: DriverOilMaintenanceStatus;
-  previewOdometerReading: string;
+  previewOdometerReading?: string;
 }) {
   const t = useTranslations("Requests.oilStatus");
   const requestT = useTranslations("Requests");
   const locale = useLocale();
-  const previewOdometer = parseOilPreviewOdometer(previewOdometerReading);
+  const contextOdometerReading = useOilOdometerReading();
+  const previewOdometer = parseOilPreviewOdometer(
+    previewOdometerReading ?? contextOdometerReading,
+  );
   const effectiveOdometer = previewOdometer ?? status.latestOdometer;
   const previewMetrics = deriveOilMaintenanceMetrics({
     vehicleId: status.vehicleId,

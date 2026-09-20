@@ -41,3 +41,8 @@ yarn-error.log*
 next-env.d.ts
 
 certificates
+
+# Local patch tooling and Supabase CLI state
+/fix*.js
+/patch*.js
+/supabase/.temp/
