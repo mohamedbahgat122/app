@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { DriverBottomNavigation } from "@/components/app-shell/driver-bottom-navigation";
 import { DriverRoutePrefetcher } from "@/components/app-shell/driver-route-prefetcher";
 import { DriverTopHeader } from "@/components/app-shell/driver-top-header";
+import { DriverRefreshProvider } from "@/components/app-shell/driver-refresh-provider";
 import { RealtimeRefresh } from "@/components/app-shell/realtime-refresh";
 import { GlobalNavigationLoader } from "@/components/app-shell/global-navigation-loader";
 import type { VerifiedDriverSession } from "@/lib/auth/driver-session";
@@ -18,8 +19,9 @@ export function DriverAppShell({
  return (
   <main className="min-h-dvh w-full overflow-x-clip bg-surface md:flex md:justify-center md:bg-navy">
    <div className="min-h-dvh w-full bg-surface md:max-w-107.5 md:shadow-[0_26px_90px_rgba(16,35,63,0.2)]">
-    <DriverRoutePrefetcher />
-    <DriverTopHeader session={session} />
+    <DriverRefreshProvider>
+     <DriverRoutePrefetcher />
+     <DriverTopHeader session={session} />
     <RealtimeRefresh
      channelName={`driver-notifications-${session.userId}`}
      table="app_notifications"
@@ -32,6 +34,7 @@ export function DriverAppShell({
      </GlobalNavigationLoader>
     </div>
     <DriverBottomNavigation />
+    </DriverRefreshProvider>
    </div>
   </main>
  );

@@ -126,6 +126,12 @@
     },
     "notifications": "Notifications",
     "account": "Account",
+    "refresh": {
+      "button": "Refresh data",
+      "pull": "Pull to refresh",
+      "release": "Release to refresh",
+      "refreshing": "Refreshing..."
+    },
     "nav": {
       "home": "Home",
       "odometer": "Odometer",
@@ -356,6 +362,33 @@
       }
     }
   },
+  "Salary": {
+    "title": "My Salary",
+    "subtitle": "View your monthly salary details",
+    "selectMonth": "Select month",
+    "viewMonth": "View month",
+    "currency": "SAR",
+    "missingDriverId": "A Keeta identifier has not been linked to your account yet.",
+    "emptyPublished": "No published salaries yet",
+    "error": "Salary data is temporarily unavailable.",
+    "monthSelector": "Salary month selector",
+    "net": "Net salary",
+    "gross": "Gross amount",
+    "remaining": "Remaining",
+    "workSummary": "Work summary",
+    "ordersActual": "Actual orders",
+    "target": "Target one",
+    "target2": "Target two",
+    "appName": "Application",
+    "salaryType": "Salary type",
+    "earnings": "Earnings",
+    "deductions": "Deductions",
+    "payments": "Payments",
+    "cashPaid": "Cash paid",
+    "bankTransfer": "Bank transfer",
+    "totalDeductions": "Total deductions",
+    "publishedAt": "Published at"
+  },
   "Tasks": {
     "title": "Tasks",
     "empty": "No tasks are assigned to you right now"
@@ -512,6 +545,7 @@
     "authorizationExpiry": "Authorization expiry",
     "operationalStatus": "Operational status",
     "changePassword": "Change password",
+    "salary": "My Salary",
     "logout": "Sign out",
     "notAvailable": "Not available",
     "operational": {

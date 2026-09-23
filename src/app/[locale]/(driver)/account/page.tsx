@@ -79,6 +79,9 @@ export default async function AccountPage({ params }: RouteProps) {
       </SectionCard>
 
       <div className="space-y-2">
+        <Link href="/salary" className="flex min-h-12 items-center justify-center rounded-[0.85rem] bg-primary-soft px-4 text-sm font-bold text-primary [touch-action:manipulation]">
+          {t("salary")}
+        </Link>
         <Link href="/change-password" className="flex min-h-12 items-center justify-center rounded-[0.85rem] border border-border bg-white px-4 text-sm font-bold text-navy [touch-action:manipulation]">
           {t("changePassword")}
         </Link>

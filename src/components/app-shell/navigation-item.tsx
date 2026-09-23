@@ -35,7 +35,7 @@ export function NavigationItem({
         }
         onNavigate?.();
       }}
-      className={`relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[0.68rem] font-semibold transition [touch-action:manipulation] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+      className={`relative flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[0.68rem] font-semibold transition [touch-action:manipulation] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
         isActive
           ? "text-primary"
           : "text-muted hover:bg-primary-soft/70 hover:text-navy active:text-primary"

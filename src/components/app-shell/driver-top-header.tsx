@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import type { ReactNode } from "react";
 import { DriverAvatar } from "@/components/app-shell/driver-avatar";
+import { DriverRefreshButton } from "@/components/app-shell/driver-refresh-provider";
 import { HeaderLanguageSwitch } from "@/components/app-shell/header-language-switch";
 import { BellIcon, OilWarningIcon } from "@/components/app-shell/icons";
 import { Link } from "@/i18n/navigation";
@@ -44,6 +45,7 @@ export async function DriverTopHeader({
   </p>
  </div>
  <div className="flex shrink-0 items-center gap-1">
+  <DriverRefreshButton />
   <HeaderLanguageSwitch />
   <Suspense fallback={<OilHeaderFallback label={t("oilStatus.default")} />}>
    <OilHeaderStatus session={session} />

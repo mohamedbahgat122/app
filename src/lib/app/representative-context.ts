@@ -342,17 +342,6 @@ export async function resolveRepresentativeContext(
     return deniedContext("vehicle_resolution", "vehicle_not_assigned");
   }
 
-  const vehicleOrganizationId = vehicle
-    ? vehicle.assigned_organization_id ?? vehicle.organization_id
-    : null;
-
-  if (vehicle && vehicleOrganizationId !== driver.organization_id) {
-    return deniedContext(
-      "vehicle_resolution",
-      "vehicle_organization_mismatch",
-    );
-  }
-
   const plate = vehicle?.plate_number ?? null;
   if (options?.requireVehicle && !plate) {
     return deniedContext("vehicle_resolution", "vehicle_not_assigned");

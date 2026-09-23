@@ -11,6 +11,16 @@ export function BellIcon({ className = "size-5" }: IconProps) {
   );
 }
 
+export function RefreshIcon({ className = "size-5" }: IconProps) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="none">
+      <path d="M20 11a8 8 0 0 0-14.7-4L4 9" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <path d="M4 4v5h5M4 13a8 8 0 0 0 14.7 4L20 15" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      <path d="M20 20v-5h-5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
 export function HomeIcon({ className = "size-5" }: IconProps) {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="none">
