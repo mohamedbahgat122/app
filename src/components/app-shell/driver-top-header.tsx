@@ -34,9 +34,9 @@ export async function DriverTopHeader({
  ]);
 
  return (
- <header className="sticky top-0 z-50 border-b border-border bg-surface px-[clamp(18px,5vw,24px)] pb-3 pt-[max(0.9rem,env(safe-area-inset-top))]">
- <div className="flex items-center justify-between gap-2.5">
- <div className="min-w-0">
+ <header className="sticky top-0 z-50 border-b border-border bg-surface px-2 pb-3 pt-[max(0.9rem,env(safe-area-inset-top))]">
+ <div className="flex items-center justify-between gap-1">
+ <div className="min-w-0 flex-1">
   <p className="truncate text-[1.05rem] font-bold leading-6 text-navy">
   {t("welcome", { name: firstName })}
   </p>
@@ -44,7 +44,7 @@ export async function DriverTopHeader({
   {t("subtitle")}
   </p>
  </div>
- <div className="flex shrink-0 items-center gap-1">
+ <div className="flex shrink-0 items-center gap-0">
   <DriverRefreshButton />
   <HeaderLanguageSwitch />
   <Suspense fallback={<OilHeaderFallback label={t("oilStatus.default")} />}>

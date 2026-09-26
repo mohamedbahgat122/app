@@ -298,6 +298,19 @@
       "normal": "عادی"
     },
     "reviewNote": "جائزہ نوٹ",
+    "maintenanceCategories": {
+      "tireChange": "ٹائر تبدیل کرنا",
+      "electrical": "برقی مرمت",
+      "airConditioning": "ایئر کنڈیشنر کی مرمت",
+      "suspension": "سسپنشن کی مرمت",
+      "engine": "انجن کی مرمت"
+    },
+    "oilChangeCategories": {
+      "oil": "تیل کی تبدیلی",
+      "siphon": "سائفن کی تبدیلی",
+      "engineFilter": "انجن فلٹر کی تبدیلی",
+      "cabinFilter": "ایئر کنڈیشنر فلٹر کی تبدیلی"
+    },
     "realtime": {
       "updated": "درخواستیں اپ ڈیٹ ہو گئیں"
     },
@@ -307,6 +320,9 @@
       "preferredDate": "ترجیحی تاریخ",
       "description": "مسئلے کی تفصیل",
       "category": "مرمت کی قسم",
+      "categoryPlaceholder": "مرمت کی قسم منتخب کریں",
+      "oilCategory": "تیل کی تبدیلی کی اقسام",
+      "oilCategoryPlaceholder": "ایک یا زیادہ اقسام منتخب کریں",
       "preferredTime": "ترجیحی وقت",
       "meetingWith": "ملاقات کس کے ساتھ",
       "meetingWithPlaceholder": "وہ شخص منتخب کریں جس سے آپ ملنا چاہتے ہیں",

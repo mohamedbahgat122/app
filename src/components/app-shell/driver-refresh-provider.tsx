@@ -27,7 +27,7 @@ export function DriverRefreshProvider({ children }: { children: ReactNode }) {
   const pullDistanceRef = useRef(0);
   const transitionObservedRef = useRef(false);
   const refreshingRef = useRef(false);
-  const touchRef = useRef({ active: false, startX: 0, startY: 0 });
+  const pointerRef = useRef({ active: false, pointerId: -1, startX: 0, startY: 0 });
 
   const refresh = useCallback(() => {
     if (refreshingRef.current) return;
@@ -58,44 +58,76 @@ export function DriverRefreshProvider({ children }: { children: ReactNode }) {
     function isAtTop() {
       return window.scrollY <= 0 && (document.scrollingElement?.scrollTop ?? 0) <= 0;
     }
-    function handleTouchStart(event: TouchEvent) {
-      if (event.touches.length !== 1 || !isAtTop() || isIgnoredTarget(event.target)) {
-        touchRef.current.active = false;
+    function handlePointerDown(event: PointerEvent) {
+      if (
+        event.pointerType !== "touch" ||
+        !event.isPrimary ||
+        !isAtTop() ||
+        isIgnoredTarget(event.target)
+      ) {
+        pointerRef.current.active = false;
         return;
       }
-      const touch = event.touches[0];
-      touchRef.current = { active: true, startX: touch.clientX, startY: touch.clientY };
+
+      pointerRef.current = {
+        active: true,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+      };
     }
-    function handleTouchMove(event: TouchEvent) {
-      if (!touchRef.current.active || event.touches.length !== 1 || !isAtTop()) return;
-      const touch = event.touches[0];
-      const deltaX = touch.clientX - touchRef.current.startX;
-      const deltaY = touch.clientY - touchRef.current.startY;
-      if (deltaY <= 0 || Math.abs(deltaY) <= Math.abs(deltaX) * 1.2) {
+    function handlePointerMove(event: PointerEvent) {
+      if (
+        !pointerRef.current.active ||
+        event.pointerId !== pointerRef.current.pointerId ||
+        event.pointerType !== "touch"
+      ) {
+        return;
+      }
+      if (!isAtTop()) {
+        pointerRef.current.active = false;
+        pullDistanceRef.current = 0;
         setPullDistance(0);
         return;
       }
+
+      const deltaX = event.clientX - pointerRef.current.startX;
+      const deltaY = event.clientY - pointerRef.current.startY;
+      if (deltaY <= 0 || Math.abs(deltaY) <= Math.abs(deltaX) * 1.2) {
+        pullDistanceRef.current = 0;
+        setPullDistance(0);
+        return;
+      }
+
       event.preventDefault();
       const distance = Math.min(maxPullDistance, deltaY * 0.45);
       pullDistanceRef.current = distance;
       setPullDistance(distance);
     }
-    function handleTouchEnd() {
-      if (!touchRef.current.active) return;
-      touchRef.current.active = false;
+    function handlePointerEnd(event: PointerEvent) {
+      if (
+        !pointerRef.current.active ||
+        event.pointerId !== pointerRef.current.pointerId ||
+        event.pointerType !== "touch"
+      ) {
+        return;
+      }
+
+      pointerRef.current.active = false;
       if (pullDistanceRef.current >= pullThreshold * 0.45) refresh();
       pullDistanceRef.current = 0;
       setPullDistance(0);
     }
-    document.addEventListener("touchstart", handleTouchStart, { passive: true });
-    document.addEventListener("touchmove", handleTouchMove, { passive: false });
-    document.addEventListener("touchend", handleTouchEnd, { passive: true });
-    document.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+
+    document.addEventListener("pointerdown", handlePointerDown, { passive: true });
+    document.addEventListener("pointermove", handlePointerMove, { passive: false });
+    document.addEventListener("pointerup", handlePointerEnd, { passive: true });
+    document.addEventListener("pointercancel", handlePointerEnd, { passive: true });
     return () => {
-      document.removeEventListener("touchstart", handleTouchStart);
-      document.removeEventListener("touchmove", handleTouchMove);
-      document.removeEventListener("touchend", handleTouchEnd);
-      document.removeEventListener("touchcancel", handleTouchEnd);
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerEnd);
+      document.removeEventListener("pointercancel", handlePointerEnd);
     };
   }, [refresh]);
 

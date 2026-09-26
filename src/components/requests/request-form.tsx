@@ -5,7 +5,7 @@ import { useFormStatus } from "react-dom";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { suppressNextRealtimeRefresh } from "@/components/app-shell/realtime-refresh";
-import { CalendarIcon, CarIcon, FileTextIcon, GaugeIcon, OilWarningIcon, SendIcon, ShiftIcon, UserIcon, ClockIcon } from "@/components/app-shell/icons";
+import { CalendarIcon, CarIcon, FileTextIcon, GaugeIcon, OilWarningIcon, SendIcon, ShiftIcon, UserIcon, ClockIcon, ShieldCheckIcon } from "@/components/app-shell/icons";
 import {
   submitLeaveRequestAction,
   submitMaintenanceRequestAction,
@@ -14,6 +14,8 @@ import {
   type DriverRequestActionState,
 } from "@/app/[locale]/actions";
 import type { MeetingManagerOption } from "@/lib/app/meeting-managers";
+import { MAINTENANCE_CATEGORIES } from "@/lib/app/maintenance-categories";
+import { OIL_CHANGE_CATEGORIES } from "@/lib/app/oil-change-categories";
 
 type RequestFormType = "leave" | "maintenance" | "meeting" | "oil-change";
 type MaintenanceVehicleErrorCode =
@@ -110,6 +112,8 @@ export function RequestForm({
           : submitOilChangeRequestAction;
   const [state, formAction] = useActionState(action, initialState);
   const submissionId = useMemo(() => createSubmissionId(), []);
+  const [maintenanceCategoryCount, setMaintenanceCategoryCount] = useState(0);
+  const [oilChangeCategoryCount, setOilChangeCategoryCount] = useState(0);
 
   useEffect(() => {
     if (state.status === "success") {
@@ -143,12 +147,17 @@ export function RequestForm({
         </p>
       ) : null}
       {type === "leave" ? <LeaveFields /> : null}
-      {type === "maintenance" ? <MaintenanceFields /> : null}
+      {type === "maintenance" ? (
+        <MaintenanceFields onSelectionChange={(count) => setMaintenanceCategoryCount(count)} />
+      ) : null}
       {type === "meeting" ? (
         <MeetingFields meetingManagers={meetingManagers} />
       ) : null}
       {type === "oil-change" ? (
-        <OilChangeFields onOdometerReadingChange={onOdometerReadingChange} />
+        <OilChangeFields
+          onOdometerReadingChange={onOdometerReadingChange}
+          onSelectionChange={setOilChangeCategoryCount}
+        />
       ) : null}
       {state.status !== "idle" && state.status !== "success" ? (
         <p className="text-sm font-bold text-red-600">
@@ -158,7 +167,9 @@ export function RequestForm({
       <RequestSubmitButton
         disabled={
           (requiresVehicle && !vehiclePlate) ||
-          (type === "meeting" && meetingManagers.length === 0)
+          (type === "meeting" && meetingManagers.length === 0) ||
+          (type === "maintenance" && maintenanceCategoryCount === 0) ||
+          (type === "oil-change" && oilChangeCategoryCount === 0)
         }
         label={t("submit")}
         pendingLabel={t("sending")}
@@ -219,12 +230,65 @@ function LeaveFields() {
   );
 }
 
-function MaintenanceFields() {
+function MaintenanceFields({
+  onSelectionChange,
+}: {
+  onSelectionChange: (count: number) => void;
+}) {
   const t = useTranslations("Requests");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   return (
     <>
-      <Input name="category" label={t("fields.category")} icon={CarIcon} />
+      <fieldset className="space-y-2">
+        <legend className="flex items-center gap-2 text-sm font-semibold text-navy">
+          <CarIcon className="size-4 text-primary" />
+          {t("fields.category")}
+        </legend>
+        <div className="space-y-2">
+          {MAINTENANCE_CATEGORIES.map(({ value, labelKey }) => {
+            const selected = selectedCategories.includes(value);
+
+            return (
+              <label
+                key={value}
+                className={`flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-[0.85rem] border px-4 text-sm font-semibold transition ${
+                  selected
+                    ? "border-primary bg-primary-soft text-navy"
+                    : "border-border bg-primary-soft/40 text-navy"
+                }`}
+              >
+                <span>{t(`maintenanceCategories.${labelKey}`)}</span>
+                <input
+                  type="checkbox"
+                  name="categories"
+                  value={value}
+                  checked={selected}
+                  onChange={() => {
+                    const next = selected
+                      ? selectedCategories.filter((category) => category !== value)
+                      : [...selectedCategories, value];
+                    setSelectedCategories(next);
+                    onSelectionChange(next.length);
+                  }}
+                  className="sr-only"
+                />
+                <span
+                  aria-hidden="true"
+                  className={`flex size-6 shrink-0 items-center justify-center rounded-full border ${
+                    selected
+                      ? "border-primary bg-primary text-white"
+                      : "border-border bg-white text-transparent"
+                  }`}
+                >
+                  <ShieldCheckIcon className="size-4" />
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        <p className="text-xs font-medium text-muted">{t("fields.categoryPlaceholder")}</p>
+      </fieldset>
       <Select name="urgency" label={t("fields.urgency")} icon={ShiftIcon}>
         <option value="normal">{t("urgency.normal")}</option>
         <option value="urgent">{t("urgency.urgent")}</option>
@@ -304,13 +368,60 @@ function formatMeetingManagerLabel(
 
 function OilChangeFields({
   onOdometerReadingChange,
+  onSelectionChange,
 }: {
   onOdometerReadingChange?: (value: string) => void;
+  onSelectionChange: (count: number) => void;
 }) {
   const t = useTranslations("Requests");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   return (
     <>
+      <fieldset className="space-y-2">
+        <legend className="flex items-center gap-2 text-sm font-semibold text-navy">
+          <OilWarningIcon className="size-4 text-primary" />
+          {t("fields.oilCategory")}
+        </legend>
+        <div className="space-y-2">
+          {OIL_CHANGE_CATEGORIES.map(({ value, labelKey }) => {
+            const selected = selectedCategories.includes(value);
+            return (
+              <label
+                key={value}
+                className={`flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-[0.85rem] border px-4 text-sm font-semibold transition ${
+                  selected ? "border-primary bg-primary-soft text-navy" : "border-border bg-primary-soft/40 text-navy"
+                }`}
+              >
+                <span>{t(`oilChangeCategories.${labelKey}`)}</span>
+                <input
+                  type="checkbox"
+                  name="oilCategories"
+                  value={value}
+                  checked={selected}
+                  onChange={() => {
+                    const next = selected
+                      ? selectedCategories.filter((category) => category !== value)
+                      : [...selectedCategories, value];
+                    setSelectedCategories(next);
+                    onSelectionChange(next.length);
+                  }}
+                  className="sr-only"
+                />
+                <span
+                  aria-hidden="true"
+                  className={`flex size-6 shrink-0 items-center justify-center rounded-full border ${
+                    selected ? "border-primary bg-primary text-white" : "border-border bg-white text-transparent"
+                  }`}
+                >
+                  <ShieldCheckIcon className="size-4" />
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        <p className="text-xs font-medium text-muted">{t("fields.oilCategoryPlaceholder")}</p>
+      </fieldset>
       <Input
         name="odometerReading"
         inputMode="numeric"

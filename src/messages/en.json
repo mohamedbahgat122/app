@@ -137,7 +137,8 @@
       "odometer": "Odometer",
       "requests": "My Requests",
       "shifts": "Shifts",
-      "vehicle": "Vehicle"
+      "vehicle": "Vehicle",
+      "salary": "Salary"
     }
   },
   "Odometer": {
@@ -262,6 +263,19 @@
     "notAvailable": "Not available",
     "scheduled": "Scheduled",
     "reviewNote": "Review note",
+    "maintenanceCategories": {
+      "tireChange": "Tire change",
+      "electrical": "Electrical maintenance",
+      "airConditioning": "Air-conditioning maintenance",
+      "suspension": "Suspension maintenance",
+      "engine": "Engine maintenance"
+    },
+    "oilChangeCategories": {
+      "oil": "Oil change",
+      "siphon": "Siphon change",
+      "engineFilter": "Engine filter change",
+      "cabinFilter": "Air-conditioner filter change"
+    },
     "realtime": {
       "updated": "Requests updated"
     },
@@ -291,6 +305,9 @@
       "endDate": "End date",
       "reason": "Reason",
       "category": "Maintenance category",
+      "categoryPlaceholder": "Select maintenance category",
+      "oilCategory": "Oil-change categories",
+      "oilCategoryPlaceholder": "Select one or more categories",
       "urgency": "Urgency",
       "description": "Problem description",
       "meetingWith": "Meeting with",

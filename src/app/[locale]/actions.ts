@@ -9,6 +9,11 @@ import { getVerifiedDriverSession } from "@/lib/auth/driver-session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getRiyadhDateString } from "@/lib/app/shift-change-window";
+import { isMaintenanceCategory } from "@/lib/app/maintenance-categories";
+import {
+  isOilChangeCategory,
+  normalizeOilChangeCategories,
+} from "@/lib/app/oil-change-categories";
 import type { Database } from "@/types/database";
 
 export type LoginActionState = {
@@ -55,6 +60,15 @@ export type OrderShiftChangeActionState = {
   status: "idle" | "success" | "validation_error" | "auth_error" | "submit_failed";
   messageKey?: string;
 };
+
+type MaintenanceRequestRpcArgs = Extract<
+  Database["public"]["Functions"]["submit_driver_maintenance_request"]["Args"],
+  { p_maintenance_categories: string[] }
+>;
+type OilChangeRequestRpcArgs = Extract<
+  Database["public"]["Functions"]["submit_driver_oil_change_request"]["Args"],
+  { p_oil_change_categories: string[] }
+>;
 
 export async function loginDriverAction(
   _previousState: LoginActionState,
@@ -296,7 +310,14 @@ export async function submitMaintenanceRequestAction(
   formData: FormData,
 ): Promise<DriverRequestActionState> {
   const submissionId = formData.get("submissionId")?.toString() ?? "";
-  const category = formData.get("category")?.toString().trim() ?? "";
+  const categories = Array.from(
+    new Set(
+      formData
+        .getAll("categories")
+        .map((value) => value.toString().trim())
+        .filter(Boolean),
+    ),
+  );
   const urgency = formData.get("urgency")?.toString() ?? "";
   const description = formData.get("description")?.toString().trim() ?? "";
 
@@ -304,12 +325,17 @@ export async function submitMaintenanceRequestAction(
     return requestValidation("submitFailed");
   }
 
-  if (!category || !["normal", "urgent"].includes(urgency) || !description) {
+  if (
+    categories.length === 0 ||
+    categories.some((category) => !isMaintenanceCategory(category)) ||
+    !["normal", "urgent"].includes(urgency) ||
+    !description
+  ) {
     return requestValidation("invalidMaintenance");
   }
 
   return submitRequestRpc("submit_driver_maintenance_request", {
-    p_maintenance_category: category,
+    p_maintenance_categories: categories,
     p_urgency: urgency,
     p_problem_description: description,
     p_submission_id: submissionId,
@@ -371,8 +397,19 @@ export async function submitOilChangeRequestAction(
   const submissionId = formData.get("submissionId")?.toString() ?? "";
   const readingText = formData.get("odometerReading")?.toString() ?? "";
   const note = formData.get("note")?.toString().trim() ?? "";
+  const rawCategories = formData
+    .getAll("oilCategories")
+    .map((value) => value.toString().trim());
+  const categories = normalizeOilChangeCategories(rawCategories);
 
   if (!isUuid(submissionId)) {
+    return requestValidation("submitFailed");
+  }
+
+  if (
+    categories.length === 0 ||
+    rawCategories.some((category) => !isOilChangeCategory(category))
+  ) {
     return requestValidation("submitFailed");
   }
 
@@ -387,6 +424,7 @@ export async function submitOilChangeRequestAction(
   }
 
   return submitRequestRpc("submit_driver_oil_change_request", {
+    p_oil_change_categories: categories,
     p_current_odometer_reading: reading,
     p_note: note || undefined,
     p_submission_id: submissionId,
@@ -458,39 +496,25 @@ function validateNewPassword(newPassword: string, confirmPassword: string) {
 }
 
 async function submitRequestRpc(
-  rpcName:
-    | "submit_driver_leave_request"
-    | "submit_driver_maintenance_request"
-    | "submit_driver_meeting_request"
-    | "submit_driver_oil_change_request",
-  args:
-    | {
-        p_leave_type: string;
-        p_start_date: string;
-        p_end_date: string;
-        p_reason: string;
-        p_submission_id: string;
-      }
-    | {
-        p_maintenance_category: string;
-        p_urgency: string;
-        p_problem_description: string;
-        p_submission_id: string;
-      }
-    | {
-        p_subject: string;
-        p_reason: string;
-        p_requested_manager_user_id: string;
-        p_preferred_date?: string | null;
-        p_preferred_time?: string | null;
-        p_submission_id: string;
-      }
-    | {
-        p_current_odometer_reading: number;
-        p_note?: string | null;
-        p_submission_id: string;
-      },
+  ...request:
+    | [
+        "submit_driver_leave_request",
+        Database["public"]["Functions"]["submit_driver_leave_request"]["Args"],
+      ]
+    | [
+        "submit_driver_maintenance_request",
+        MaintenanceRequestRpcArgs,
+      ]
+    | [
+        "submit_driver_meeting_request",
+        Database["public"]["Functions"]["submit_driver_meeting_request"]["Args"],
+      ]
+    | [
+        "submit_driver_oil_change_request",
+        OilChangeRequestRpcArgs,
+      ]
 ): Promise<DriverRequestActionState> {
+  const [rpcName, args] = request;
   const supabase = await createSupabaseServerClient();
   const sessionResult = await getVerifiedDriverSession(supabase);
 
@@ -513,12 +537,12 @@ async function submitRequestRpc(
 
   const { error } =
     rpcName === "submit_driver_leave_request"
-      ? await supabase.rpc(rpcName, requireLeaveArgs(args))
+      ? await supabase.rpc(rpcName, args)
       : rpcName === "submit_driver_maintenance_request"
-        ? await supabase.rpc(rpcName, requireMaintenanceArgs(args))
+        ? await supabase.rpc(rpcName, args)
         : rpcName === "submit_driver_meeting_request"
-          ? await supabase.rpc(rpcName, requireMeetingArgs(args))
-          : await supabase.rpc(rpcName, requireOilChangeArgs(args));
+          ? await supabase.rpc(rpcName, args)
+          : await supabase.rpc(rpcName, args);
 
   if (error) {
     logDriverRequestDiagnostic({
@@ -553,30 +577,6 @@ async function submitRequestRpc(
     status: "success",
     messageKey: "submitted",
   };
-}
-
-function requireLeaveArgs(
-  args: unknown,
-) {
-  return args as Database["public"]["Functions"]["submit_driver_leave_request"]["Args"];
-}
-
-function requireMaintenanceArgs(
-  args: unknown,
-) {
-  return args as Database["public"]["Functions"]["submit_driver_maintenance_request"]["Args"];
-}
-
-function requireMeetingArgs(
-  args: unknown,
-) {
-  return args as Database["public"]["Functions"]["submit_driver_meeting_request"]["Args"];
-}
-
-function requireOilChangeArgs(
-  args: unknown,
-) {
-  return args as Database["public"]["Functions"]["submit_driver_oil_change_request"]["Args"];
 }
 
 function requestValidation(messageKey: string): DriverRequestActionState {

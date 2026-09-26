@@ -298,6 +298,19 @@
       "normal": "সাধারণ"
     },
     "reviewNote": "পর্যালোচনা নোট",
+    "maintenanceCategories": {
+      "tireChange": "টায়ার পরিবর্তন",
+      "electrical": "বৈদ্যুতিক রক্ষণাবেক্ষণ",
+      "airConditioning": "এয়ার কন্ডিশনার রক্ষণাবেক্ষণ",
+      "suspension": "সাসপেনশন রক্ষণাবেক্ষণ",
+      "engine": "ইঞ্জিন রক্ষণাবেক্ষণ"
+    },
+    "oilChangeCategories": {
+      "oil": "তেল পরিবর্তন",
+      "siphon": "সাইফন পরিবর্তন",
+      "engineFilter": "ইঞ্জিন ফিল্টার পরিবর্তন",
+      "cabinFilter": "এয়ার কন্ডিশনার ফিল্টার পরিবর্তন"
+    },
     "realtime": {
       "updated": "অনুরোধ আপডেট হয়েছে"
     },
@@ -307,6 +320,9 @@
       "preferredDate": "পছন্দের তারিখ",
       "description": "সমস্যার বিবরণ",
       "category": "রক্ষণাবেক্ষণ বিভাগ",
+      "categoryPlaceholder": "রক্ষণাবেক্ষণের ধরন নির্বাচন করুন",
+      "oilCategory": "তেল পরিবর্তনের ধরন",
+      "oilCategoryPlaceholder": "এক বা একাধিক ধরন নির্বাচন করুন",
       "preferredTime": "পছন্দের সময়",
       "meetingWith": "কার সঙ্গে মিটিং",
       "meetingWithPlaceholder": "আপনি যার সঙ্গে দেখা করতে চান তাকে নির্বাচন করুন",

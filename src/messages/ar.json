@@ -308,6 +308,19 @@
       "normal": "عادي"
     },
     "reviewNote": "ملاحظة المراجعة",
+    "maintenanceCategories": {
+      "tireChange": "تغيير كفرات",
+      "electrical": "صيانة كهرباء",
+      "airConditioning": "صيانة مكيف",
+      "suspension": "صيانة عفشة",
+      "engine": "صيانة مكينة"
+    },
+    "oilChangeCategories": {
+      "oil": "تغيير زيت",
+      "siphon": "تغيير سيفون",
+      "engineFilter": "تغيير فلتر مكينة",
+      "cabinFilter": "تغيير فلتر مكيف"
+    },
     "realtime": {
       "updated": "تم تحديث الطلبات"
     },
@@ -317,6 +330,9 @@
       "preferredDate": "التاريخ المفضل",
       "description": "وصف المشكلة",
       "category": "فئة الصيانة",
+      "categoryPlaceholder": "اختر فئة الصيانة",
+      "oilCategory": "فئات تغيير الزيت",
+      "oilCategoryPlaceholder": "اختر فئة واحدة أو أكثر",
       "preferredTime": "الوقت المفضل",
       "meetingWith": "المقابلة مع",
       "meetingWithPlaceholder": "اختر الشخص المطلوب مقابلته",
